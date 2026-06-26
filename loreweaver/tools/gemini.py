@@ -16,16 +16,17 @@ from .util import log, retry
 # ---------------------------------------------------------------- text -------
 @retry(times=3)
 def _live_text(prompt: str, json_mode: bool, system: str | None) -> str:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
 
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    cfg = {"response_mime_type": "application/json"} if json_mode else {}
-    model = genai.GenerativeModel(
-        settings.GEMINI_TEXT_MODEL,
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    config = types.GenerateContentConfig(
         system_instruction=system,
-        generation_config=cfg or None,
+        response_mime_type="application/json" if json_mode else None,
     )
-    resp = model.generate_content(prompt)
+    resp = client.models.generate_content(
+        model=settings.GEMINI_TEXT_MODEL, contents=prompt, config=config
+    )
     return resp.text
 
 
@@ -48,12 +49,16 @@ def generate_json(prompt: str, *, system: str | None = None) -> object:
 # --------------------------------------------------------------- image -------
 @retry(times=3)
 def _live_image(prompt: str, out_path: str) -> str:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
 
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    model = genai.ImageGenerationModel(settings.GEMINI_IMAGE_MODEL)
-    result = model.generate_images(prompt=prompt, number_of_images=1)
-    result[0].save(out_path)
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    result = client.models.generate_images(
+        model=settings.GEMINI_IMAGE_MODEL,
+        prompt=prompt,
+        config=types.GenerateImagesConfig(number_of_images=1),
+    )
+    result.generated_images[0].image.save(out_path)
     return out_path
 
 
@@ -71,35 +76,47 @@ def _seeded(prompt: str) -> int:
 
 def _mock_text(prompt: str, json_mode: bool) -> str:
     p = prompt.lower()
-    if json_mode and "concept" in p:
-        return _json.dumps({
-            "title": "The Tidebound Archive",
-            "premise": "On a drowned continent, librarians dive sunken cities to "
-                       "recover memories crystallised in salt before the next tide erases them.",
-            "tone": "melancholic wonder, slow-burn mystery",
-            "audience": "adult fantasy listeners",
-            "differentiators": ["memory-as-magic", "oceanic archaeology", "no chosen one"],
-            "sources": ["https://example.org/folklore/tide-myths",
-                        "https://example.org/marine-archaeology"],
-        })
-    if json_mode and "world bible" in p:
-        return _json.dumps(_MOCK_BIBLE)
-    if json_mode and "script" in p:
-        return _json.dumps(_MOCK_SCRIPT_LINES)
-    if json_mode and ("qa" in p or "verdict" in p):
-        return _json.dumps({"verdict": "pass", "notes": ["Canon consistent.", "Safe content."]})
+    # Intent routing is PRIORITY-ORDERED: several prompts legitimately contain
+    # overlapping words (the bible prompt mentions "concept"; the QA and outline
+    # prompts embed the world bible). Check the most specific intent first.
+    if json_mode:
+        if "continuity editor" in p or "verdict" in p:
+            return _json.dumps({"verdict": "pass",
+                                "notes": ["Canon consistent.", "Safe content."]})
+        if "outline" in p or "chapters" in p:
+            return _json.dumps(_MOCK_OUTLINE)
+        if "world bible" in p:
+            return _json.dumps(_MOCK_BIBLE)
+        if "performance script" in p or "script" in p:
+            return _json.dumps(_MOCK_SCRIPT_LINES)
+        if "concept" in p:
+            return _json.dumps({
+                "title": "The Tidebound Archive",
+                "premise": "On a drowned continent, librarians dive sunken cities to "
+                           "recover memories crystallised in salt before the tide erases them.",
+                "tone": "melancholic wonder, slow-burn mystery",
+                "audience": "adult fantasy listeners",
+                "differentiators": ["memory-as-magic", "oceanic archaeology", "no chosen one"],
+                "sources": ["https://example.org/folklore/tide-myths",
+                            "https://example.org/marine-archaeology"],
+            })
+        return _json.dumps({})
     if "rolling summary" in p:
         return "Maren recovered the first salt-memory and learned the Archive is sinking faster than recorded."
-    # default prose (a chapter)
-    return textwrap.dedent(
+    # default prose (a chapter). Repeated to a believable chapter length so the
+    # QA length gate passes cleanly in offline mock-mode demos.
+    para = textwrap.dedent(
         """\
         The tide had not yet turned when Maren slipped beneath the black water.
         Salt stung the old scar along her wrist, and the drowned city of Veil
         opened below her like a held breath. "Stay close," she told the lantern-fish,
         though it never listened. Somewhere in the archive-spires, a memory was
-        crystallising, and if she was slow, the sea would take it forever.
+        crystallising, and if she was slow, the sea would take it forever. She kicked
+        downward past the toppled colonnades where the Tidebound had once shelved a
+        thousand lifetimes, and felt the old grief rise with the cold.
         """
-    ).strip() * 6  # pad to a believable chapter length in mock mode
+    ).strip()
+    return ("\n\n".join(para for _ in range(20)))  # ~1,400 words
 
 
 def _mock_image(prompt: str, out_path: str) -> str:
@@ -150,6 +167,17 @@ _MOCK_BIBLE = {
     ],
     "central_conflict": "Maren must decide which memories are worth the cost of her own.",
     "visual_identity": "deep teal and salt-white, bioluminescent accents, drowned gothic spires",
+}
+
+_MOCK_OUTLINE = {
+    "chapters": [
+        {"index": 1, "title": "The First Salt-Memory", "beat": "Maren recovers a memory she shouldn't have."},
+        {"index": 2, "title": "The Undertow's Offer", "beat": "A rival faction tempts her to let the past drown."},
+        {"index": 3, "title": "What the Tide Keeps", "beat": "The true cost of reading a memory is revealed."},
+        {"index": 4, "title": "Coll's Bargain", "beat": "Coll trades a memory he can't afford."},
+        {"index": 5, "title": "The Sinking Archive", "beat": "The Archive collapses faster than predicted."},
+        {"index": 6, "title": "Held Breath", "beat": "Maren decides which memories are worth her own."},
+    ]
 }
 
 _MOCK_SCRIPT_LINES = {

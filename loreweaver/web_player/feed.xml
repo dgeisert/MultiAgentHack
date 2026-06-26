@@ -4,31 +4,31 @@
     <title>The Tidebound Archive</title>
     <link>http://localhost:8000</link>
     <language>en-us</language>
-    <description>On a drowned continent, librarians dive sunken cities to recover memories crystallised in salt before the next tide erases them.</description>
+    <description>Librarians dive a drowned continent to recover crystallised memories.</description>
     <itunes:author>Loreweaver (autonomous agents)</itunes:author>
     <itunes:image href="http://localhost:8000/assets/tidebound_ch02.png"/>
     <itunes:category text="Fiction"/>
     <item>
       <title>The Tidebound Archive — Chapter 1</title>
-      <description>On a drowned continent, librarians dive sunken cities to recover memories crystallised in salt before the next tide erases them.
+      <description>Librarians dive a drowned continent to recover crystallised memories.
 
 Autonomously written, voiced, and published by Loreweaver agents.
 Inspiration: https://example.org/folklore/tide-myths, https://example.org/marine-archaeology</description>
       <enclosure url="http://localhost:8000/assets/tidebound_ch01.mp3" type="audio/mpeg" length="0"/>
       <guid isPermaLink="false">690210595789192c9f17e111f92c7102a30b48a1</guid>
-      <pubDate>Fri, 26 Jun 2026 10:11:18 +0000</pubDate>
+      <pubDate>Fri, 26 Jun 2026 11:06:10 +0000</pubDate>
       <itunes:duration>00:15:00</itunes:duration>
       <itunes:image href="http://localhost:8000/assets/tidebound_ch01.png"/>
     </item>
     <item>
       <title>The Tidebound Archive — Chapter 2</title>
-      <description>On a drowned continent, librarians dive sunken cities to recover memories crystallised in salt before the next tide erases them.
+      <description>Librarians dive a drowned continent to recover crystallised memories.
 
 Autonomously written, voiced, and published by Loreweaver agents.
 Inspiration: </description>
       <enclosure url="http://localhost:8000/assets/tidebound_ch02.mp3" type="audio/mpeg" length="0"/>
       <guid isPermaLink="false">9f8e5b614c6400f5bcae5728037bb2fcb6521c47</guid>
-      <pubDate>Fri, 26 Jun 2026 10:11:31 +0000</pubDate>
+      <pubDate>Fri, 26 Jun 2026 11:06:13 +0000</pubDate>
       <itunes:duration>00:15:00</itunes:duration>
       <itunes:image href="http://localhost:8000/assets/tidebound_ch02.png"/>
     </item>

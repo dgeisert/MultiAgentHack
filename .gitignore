@@ -1,0 +1,15 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Generated runtime data & artifacts
+data/
+loreweaver/web_player/feed.xml
+loreweaver/web_player/assets/

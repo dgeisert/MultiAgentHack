@@ -1,7 +1,12 @@
-"""ElevenLabs wrapper: Voice Design (mint character voices) + multi-voice TTS.
+"""ElevenLabs wrapper: stock-voice catalog lookup + multi-voice TTS.
 
-Mock path writes short silent/sine WAV segments so the Audio Producer can still
-stitch a real, playable MP3 for the demo without any API key.
+We do NOT train/design custom voices. Instead the Casting Director picks an
+appropriate, unique premade voice per character from this catalog (matched on
+gender/age/accent), so there are no voice-quota costs and casting is instant.
+
+Mock path: a curated catalog of real ElevenLabs premade voice ids + metadata,
+and per-voice sine-tone WAVs so the Audio Producer can stitch a playable file
+with no API key.
 """
 from __future__ import annotations
 
@@ -13,37 +18,68 @@ import wave
 from .. import settings
 from .util import log, retry
 
-# A few stable preset voice ids used in mock mode (and as live fallbacks).
-_PRESET_VOICES = {
-    "Narrator": "voice_narrator_mock",
-    "default": "voice_default_mock",
-}
+# Real ElevenLabs premade voice ids with metadata — used directly in mock mode
+# and as a fallback if the live catalog can't be fetched.
+_MOCK_CATALOG = [
+    {"voice_id": "21m00Tcm4TlvDq8ikWAM", "name": "Rachel", "gender": "female",
+     "age": "young", "accent": "american", "description": "calm, even narration"},
+    {"voice_id": "pNInz6obpgDQGcFmaJgB", "name": "Adam", "gender": "male",
+     "age": "middle-aged", "accent": "american", "description": "deep, narration"},
+    {"voice_id": "onwK4e9ZLuTAKqWW03F9", "name": "Daniel", "gender": "male",
+     "age": "middle-aged", "accent": "british", "description": "authoritative"},
+    {"voice_id": "ThT5KcBeYPX3keUQqHPh", "name": "Dorothy", "gender": "female",
+     "age": "young", "accent": "british", "description": "pleasant storytelling"},
+    {"voice_id": "ErXwobaYiN019PkySvjV", "name": "Antoni", "gender": "male",
+     "age": "young", "accent": "american", "description": "well-rounded, warm"},
+    {"voice_id": "AZnzlk1XvdvUeBnXmlld", "name": "Domi", "gender": "female",
+     "age": "young", "accent": "american", "description": "strong, confident"},
+    {"voice_id": "VR6AewLTigWG4xSOukaG", "name": "Arnold", "gender": "male",
+     "age": "middle-aged", "accent": "american", "description": "crisp, gruff"},
+    {"voice_id": "yoZ06aMxZJJ28mfd3POQ", "name": "Sam", "gender": "male",
+     "age": "young", "accent": "american", "description": "raspy, youthful"},
+    {"voice_id": "EXAVITQu4vr4xnSDxMaL", "name": "Bella", "gender": "female",
+     "age": "young", "accent": "american", "description": "soft, gentle"},
+    {"voice_id": "oWAxZDx7w5VEj9dCyTzz", "name": "Grace", "gender": "female",
+     "age": "young", "accent": "american-southern", "description": "gentle, lilting"},
+    {"voice_id": "CYw3kZ02Hs0563khs1Fj", "name": "Dave", "gender": "male",
+     "age": "young", "accent": "british-essex", "description": "conversational"},
+    {"voice_id": "TxGEqnHWrfWFTfGW9XjX", "name": "Josh", "gender": "male",
+     "age": "young", "accent": "american", "description": "deep, earnest"},
+]
 
 
-@retry(times=3)
-def _live_design_voice(name: str, brief: str) -> str:
+@retry(times=2)
+def _live_list_voices() -> list[dict]:
     from elevenlabs.client import ElevenLabs
 
     client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
-    # Voice Design: create a voice from a natural-language description.
-    preview = client.text_to_voice.create_previews(
-        voice_description=brief, text=f"This is the voice of {name}."
-    )
-    gen_id = preview.previews[0].generated_voice_id
-    created = client.text_to_voice.create_voice_from_preview(
-        voice_name=name, voice_description=brief, generated_voice_id=gen_id
-    )
-    return created.voice_id
+    resp = client.voices.get_all()
+    out = []
+    for v in resp.voices:
+        labels = getattr(v, "labels", None) or {}
+        out.append({
+            "voice_id": v.voice_id,
+            "name": getattr(v, "name", "") or "",
+            "gender": (labels.get("gender") or "").lower(),
+            "age": (labels.get("age") or "").lower(),
+            "accent": (labels.get("accent") or "").lower(),
+            "description": (labels.get("description") or labels.get("descriptive")
+                            or getattr(v, "description", "") or "").lower(),
+        })
+    return out or list(_MOCK_CATALOG)
 
 
-def design_voice(name: str, brief: str) -> str:
-    """Create (or look up) a voice for a character; returns a voice_id."""
+def list_voices() -> list[dict]:
+    """Return the catalog of available premade voices with metadata."""
     if settings.mock_mode():
-        vid = "voice_" + hashlib.sha1(f"{name}:{brief}".encode()).hexdigest()[:10]
-        log("elevenlabs", f"(mock) designed voice {vid} for {name}")
-        return vid
-    log("elevenlabs", f"design_voice for {name}")
-    return _live_design_voice(name, brief)
+        log("elevenlabs", f"(mock) catalog of {len(_MOCK_CATALOG)} premade voices")
+        return list(_MOCK_CATALOG)
+    log("elevenlabs", "fetching premade voice catalog")
+    try:
+        return _live_list_voices()
+    except Exception as e:  # noqa: BLE001
+        log("elevenlabs", f"catalog fetch failed ({e}); using built-in catalog")
+        return list(_MOCK_CATALOG)
 
 
 @retry(times=3)

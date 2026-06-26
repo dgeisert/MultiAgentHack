@@ -2,7 +2,7 @@
 langgraph>=0.2.0
 
 # Sponsor tools (live mode)
-google-generativeai>=0.8.0      # Gemini text + image
+google-genai>=1.0.0             # Gemini text + image (new unified SDK)
 elevenlabs>=1.0.0               # Voice Design + TTS
 tavily-python>=0.5.0            # web search / crawl
 

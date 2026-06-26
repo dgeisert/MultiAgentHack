@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
-from pathlib import Path
 
 from .. import settings
 from ..state import SeriesState
-from ..store import continuity
+from ..store import continuity, files
 from ..tools import deploy, media, rss, youtube
 from ..tools.util import log
 
@@ -59,8 +58,8 @@ def run(state: SeriesState) -> dict:
     results["podcast"] = rss.push_to_host(feed_path, episode)
 
     # (3) YouTube (render still-image video, then upload).
-    video_dir = Path(settings.ARTIFACTS_DIR) / sid / f"ch{chapter:02d}"
-    video = media.make_video(audio, thumb, str(video_dir / "episode.mp4")) if audio else ""
+    video_out = str(files.video_dir(sid) / f"ch{chapter:02d}.mp4")
+    video = media.make_video(audio, thumb, video_out) if audio else ""
     results["youtube"] = youtube.upload(video, title, show_notes, thumb)
 
     log("publisher", "published to: " + ", ".join(f"{k}={v}" for k, v in results.items()))

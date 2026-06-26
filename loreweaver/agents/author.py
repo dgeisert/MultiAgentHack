@@ -10,6 +10,7 @@ import json
 
 from .. import settings
 from ..state import SeriesState
+from ..store import files
 from ..tools import gemini
 from ..tools.util import log
 
@@ -17,7 +18,9 @@ from ..tools.util import log
 def run(state: SeriesState) -> dict:
     bible = state["world_bible"]
     outline = state.get("chapter_outline", [])
-    chapter_no = state.get("current_chapter", 0) + 1
+    # current_chapter is fixed by the Showrunner; do NOT increment here, or a QA
+    # revise-loop would advance the chapter number on every retry.
+    chapter_no = state.get("current_chapter", 1)
     beat = next((c for c in outline if c.get("index") == chapter_no), None) or {
         "index": chapter_no, "title": f"Chapter {chapter_no}", "beat": "advance the conflict"}
 
@@ -44,5 +47,6 @@ def run(state: SeriesState) -> dict:
     )
     rolling = gemini.generate_text(summary_prompt)
 
-    log("author", f"wrote chapter {chapter_no} ({len(draft.split())} words)")
-    return {"chapter_draft": draft, "rolling_summary": rolling, "current_chapter": chapter_no}
+    saved = files.save_text_revision(state["series_id"], chapter_no, draft)
+    log("author", f"wrote chapter {chapter_no} ({len(draft.split())} words) -> {saved.name}")
+    return {"chapter_draft": draft, "rolling_summary": rolling}

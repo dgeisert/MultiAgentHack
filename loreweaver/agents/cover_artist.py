@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from .. import settings
 from ..state import SeriesState
+from ..store import files
 from ..tools import gemini
 from ..tools.util import log
 
@@ -35,11 +36,10 @@ def run(state: SeriesState) -> dict:
         "Cinematic, no text, painterly fantasy illustration."
     )
 
-    out_dir = settings.ARTIFACTS_DIR / sid / f"ch{chapter:02d}"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    raw = gemini.generate_image(prompt, str(out_dir / "cover_raw.png"))
-    square = _resize(raw, str(out_dir / "cover_square.png"), (3000, 3000))
-    thumb = _resize(raw, str(out_dir / "cover_thumb.png"), (1280, 720))
+    out_dir = files.cover_dir(sid)
+    raw = gemini.generate_image(prompt, str(out_dir / f"ch{chapter:02d}_raw.png"))
+    square = _resize(raw, str(out_dir / f"ch{chapter:02d}_square.png"), (3000, 3000))
+    thumb = _resize(raw, str(out_dir / f"ch{chapter:02d}_thumb.png"), (1280, 720))
 
     log("cover", f"cover art ready ({square})")
     return {"covers": {"square": square, "thumb": thumb}}

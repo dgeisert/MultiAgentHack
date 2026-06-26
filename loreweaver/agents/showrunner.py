@@ -16,18 +16,21 @@ def enter(state: SeriesState) -> dict:
     sid = state["series_id"]
     existing = continuity.load_series(sid)
 
+    # current_chapter always means "the chapter being produced this run", set
+    # once here so QA revise-loops can re-run the Author without advancing it.
     if state.get("mode") == "new_series" or existing is None:
-        log("showrunner", f"NEW SERIES '{sid}'")
-        return {"mode": "new_series", "current_chapter": 0, "retries": {}, "qa_notes": []}
+        log("showrunner", f"NEW SERIES '{sid}' — producing chapter 1")
+        return {"mode": "new_series", "current_chapter": 1, "retries": {}, "qa_notes": []}
 
-    log("showrunner", f"CONTINUE '{sid}' — next chapter {existing['current_chapter'] + 1}")
+    next_chapter = existing["current_chapter"] + 1
+    log("showrunner", f"CONTINUE '{sid}' — producing chapter {next_chapter}")
     return {
         "mode": "next_chapter",
         "world_bible": existing["world_bible"],
         "chapter_outline": existing["chapter_outline"],
         "voice_map": existing["voice_map"],
         "rolling_summary": existing["rolling_summary"],
-        "current_chapter": existing["current_chapter"],
+        "current_chapter": next_chapter,
         "retries": {},
         "qa_notes": [],
     }
