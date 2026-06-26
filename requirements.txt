@@ -1,0 +1,19 @@
+# Core orchestration
+langgraph>=0.2.0
+
+# Sponsor tools (live mode)
+google-generativeai>=0.8.0      # Gemini text + image
+elevenlabs>=1.0.0               # Voice Design + TTS
+tavily-python>=0.5.0            # web search / crawl
+
+# Publishing
+google-api-python-client>=2.0.0 # YouTube upload (live)
+google-auth-oauthlib>=1.0.0
+
+# Utilities
+Pillow>=10.0.0                  # cover resizing / mock covers
+python-dotenv>=1.0.0
+APScheduler>=3.10.0             # serialized drip (optional)
+
+# ffmpeg is a SYSTEM dependency (brew install ffmpeg / apt install ffmpeg)
+# Everything runs without it via a pure-Python WAV fallback.
