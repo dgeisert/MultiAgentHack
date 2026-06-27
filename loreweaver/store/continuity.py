@@ -90,6 +90,90 @@ def save_series(series_id: str, *, title="", world_bible=None, chapter_outline=N
         )
 
 
+def list_series() -> list[dict]:
+    """Every series known to the store, enriched with an episode count.
+
+    Series are sourced from the `series` table *and* from any series_id that
+    only appears in `episodes` (e.g. a run that published before finalize wrote
+    its series row), so the management UI never misses a generation.
+    """
+    with _conn() as con:
+        srows = con.execute("SELECT * FROM series").fetchall()
+        counts = {
+            r["series_id"]: r["n"]
+            for r in con.execute(
+                "SELECT series_id, COUNT(*) AS n FROM episodes GROUP BY series_id"
+            ).fetchall()
+        }
+        ep_only = {
+            r["series_id"]
+            for r in con.execute("SELECT DISTINCT series_id FROM episodes").fetchall()
+        }
+
+    out: list[dict] = []
+    seen: set[str] = set()
+    for row in srows:
+        sid = row["series_id"]
+        seen.add(sid)
+        bible = json.loads(row["world_bible"] or "null") or {}
+        out.append({
+            "series_id": sid,
+            "title": row["title"] or bible.get("title") or sid,
+            "premise": bible.get("premise", ""),
+            "current_chapter": row["current_chapter"] or 0,
+            "cover_url": row["cover_url"] or "",
+            "episode_count": counts.get(sid, 0),
+            "has_world": bool(bible),
+        })
+
+    for sid in ep_only - seen:  # episodes exist but no series row yet
+        eps = list_episodes(sid)
+        out.append({
+            "series_id": sid,
+            "title": eps[-1]["title"].split(" — ")[0] if eps else sid,
+            "premise": "",
+            "current_chapter": max((e["chapter"] for e in eps), default=0),
+            "cover_url": eps[-1].get("image_url", "") if eps else "",
+            "episode_count": len(eps),
+            "has_world": False,
+        })
+
+    out.sort(key=lambda s: s["series_id"])
+    return out
+
+
+def get_episode(series_id: str, chapter: int) -> dict | None:
+    with _conn() as con:
+        row = con.execute(
+            "SELECT * FROM episodes WHERE series_id=? AND chapter=? ORDER BY id DESC LIMIT 1",
+            (series_id, chapter),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def delete_episode(series_id: str, chapter: int) -> int:
+    """Remove all episode rows for a chapter. Returns rows deleted."""
+    with _conn() as con:
+        cur = con.execute(
+            "DELETE FROM episodes WHERE series_id=? AND chapter=?", (series_id, chapter)
+        )
+        return cur.rowcount
+
+
+def delete_series(series_id: str) -> None:
+    """Drop a series and all of its episodes from the store."""
+    with _conn() as con:
+        con.execute("DELETE FROM episodes WHERE series_id=?", (series_id,))
+        con.execute("DELETE FROM series WHERE series_id=?", (series_id,))
+
+
+def set_current_chapter(series_id: str, chapter: int) -> None:
+    with _conn() as con:
+        con.execute(
+            "UPDATE series SET current_chapter=? WHERE series_id=?", (chapter, series_id)
+        )
+
+
 def add_episode(series_id: str, episode: dict) -> None:
     with _conn() as con:
         con.execute(

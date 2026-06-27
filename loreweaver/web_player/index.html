@@ -24,15 +24,102 @@
   .empty { color:var(--muted); text-align:center; padding:60px 0; }
   footer { text-align:center; color:var(--muted); font-size:12px; padding:30px; }
   a { color:var(--teal); }
+
+  /* ---- braindump console ---- */
+  .panel { background:var(--panel); border:1px solid #1c3a44; border-radius:14px;
+           padding:18px 20px; margin:18px 0; }
+  .panel h2 { margin:0 0 4px; font-size:20px; }
+  .panel .hint { color:var(--muted); font-size:13px; margin:0 0 14px; line-height:1.5; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+  .row label { font-size:13px; color:var(--muted); }
+  input, textarea, select, button { font-family:inherit; font-size:14px; }
+  input, select { background:#0a1014; color:var(--salt); border:1px solid #1c3a44;
+                  border-radius:8px; padding:8px 10px; }
+  textarea { width:100%; min-height:150px; resize:vertical; background:#0a1014;
+             color:var(--salt); border:1px solid #1c3a44; border-radius:10px;
+             padding:12px; line-height:1.55; }
+  button { background:var(--teal); color:#06231f; border:0; border-radius:8px;
+           padding:10px 18px; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  .status { font-size:13px; color:var(--muted); margin-top:10px; min-height:18px; }
+  .status.err { color:#ff8a8a; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+           gap:12px; margin-top:14px; }
+  .card { background:#0c1c24; border:1px solid #1c3a44; border-radius:12px; padding:14px 16px; }
+  .card h4 { margin:0 0 2px; font-size:15px; }
+  .card .role { color:var(--teal); font-size:12px; margin-bottom:8px; }
+  .card p { margin:6px 0 0; font-size:12.5px; color:var(--muted); line-height:1.5; }
+  .card .k { color:var(--salt); font-weight:600; }
+  .badge { display:inline-block; font-size:11px; border-radius:999px; padding:2px 8px;
+           margin-left:8px; }
+  .badge.new { background:rgba(45,212,191,.18); color:var(--teal); }
+  .badge.upd { background:rgba(127,166,160,.18); color:var(--muted); }
+  .lore-item { margin:10px 0; }
+  .lore-item .k { color:var(--teal); font-size:12px; text-transform:uppercase;
+                  letter-spacing:.5px; }
+  .lore-item p { margin:3px 0 0; font-size:13.5px; line-height:1.55; }
+  details summary { cursor:pointer; color:var(--teal); font-size:14px; }
+
+  /* ---- inline editing ---- */
+  [contenteditable="true"] { cursor:text; border-radius:5px;
+    transition:background .15s, box-shadow .15s; }
+  [contenteditable="true"]:hover { background:rgba(45,212,191,.06); }
+  [contenteditable="true"]:focus { outline:none; background:rgba(45,212,191,.10);
+    box-shadow:0 0 0 1px var(--teal); }
+  [contenteditable="true"]:empty:before { content:attr(data-placeholder);
+    color:var(--muted); opacity:.6; }
+  .edit-hint { font-size:12px; color:var(--muted); }
+  #saveStatus { font-size:12px; min-height:16px; transition:opacity .2s; }
+  #saveStatus.err { color:#ff8a8a; }
+  #saveStatus.ok { color:var(--teal); }
 </style>
 </head>
 <body>
 <header>
-  <h1 id="title">Loreweaver</h1>
-  <div class="sub" id="premise">An autonomously written, voiced, and published fantasy audiobook.</div>
+  <h1 id="title" data-edit="title" data-placeholder="Series title…">Loreweaver</h1>
+  <div class="sub" id="premise" data-edit="lore" data-key="premise"
+       data-placeholder="One-line premise…">An autonomously written, voiced, and published fantasy audiobook.</div>
   <span class="tag">● LIVE · agents publishing chapter by chapter</span>
+  <span style="margin-left:12px"><a href="manage.html">⚙ Manage generations →</a></span>
+  <div id="saveStatus" style="margin-top:8px"></div>
 </header>
-<main id="episodes"><div class="empty">Loading feed…</div></main>
+<main>
+  <section class="panel" id="fileWarn" style="display:none;border-color:#ff7a7a">
+    <h2 style="color:#ff7a7a">⚠ Opened as a local file</h2>
+    <p class="hint" style="margin:0">This page is open via <code>file://</code>, so the browser
+      blocks the API (braindump, lore, feed). Start the server and open it over HTTP instead:</p>
+    <pre style="background:#06141a;border:1px solid #1c3a44;border-radius:8px;padding:10px;
+                margin:10px 0 0;overflow:auto;color:var(--muted)">python -m loreweaver.main serve
+# then open  http://localhost:8000/</pre>
+  </section>
+
+  <section class="panel">
+    <h2>🧠 Brain-dump → Canon</h2>
+    <p class="hint">Dump anything about your story — fragments of world, vibes,
+      half-formed characters, plot scraps. The system mines it into lore and
+      character entries and folds them into the series bible. Keep dumping over
+      time; new notes merge with what's already there.</p>
+    <div class="row">
+      <label for="series">Series</label>
+      <input id="series" list="series-list" placeholder="e.g. tidebound" style="min-width:200px" />
+      <datalist id="series-list"></datalist>
+    </div>
+    <textarea id="dump" placeholder="A drowned world where memory is currency. My lead, Maren, is a grief-driven archivist who dives sunken cities to recover memories before the tide erases them. There's a faction, the Undertow, who want the past to drown…"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button id="go">Generate lore & characters</button>
+      <span class="status" id="status"></span>
+    </div>
+    <div id="result"></div>
+  </section>
+
+  <section class="panel" id="canon-panel" style="display:none">
+    <h2 id="canon-title">World bible</h2>
+    <p class="edit-hint">✎ Click any text below to edit it — changes save automatically.</p>
+    <div id="canon"></div>
+  </section>
+
+  <div id="episodes"><div class="empty">Loading feed…</div></div>
+</main>
 <footer>Feed: <a href="feed.xml">feed.xml</a> · Generated by autonomous agents (Gemini · ElevenLabs · Tavily)</footer>
 
 <script>
@@ -67,6 +154,230 @@ async function load() {
   }
 }
 load();
+
+// ---------------- braindump console ----------------
+const $ = (id) => document.getElementById(id);
+const esc = (s) => (s ?? '').replace(/[&<>"]/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function loadSeries() {
+  try {
+    const r = await fetch('/api/series');
+    const { series = [] } = await r.json();
+    $('series-list').innerHTML = series.map(s => `<option value="${esc(s)}">`).join('');
+    if (series.length && !$('series').value) {
+      $('series').value = series[0];
+      loadCanon(series[0]);
+    }
+  } catch (_) { /* static hosting without the API — braindump just won't post */ }
+}
+
+const LORE_ORDER = ['premise','tone','geography','magic_system','central_conflict','visual_identity'];
+
+// ---- editing state ----
+let currentWorld = null;     // last-loaded world payload, mutated in place on edit
+let currentSeries = '';      // series the canon panel is bound to
+let saveTimer = null;
+
+function ed(attrs, val, ph) {  // build a contenteditable span/snippet
+  return `<span contenteditable="true" ${attrs}` +
+    (ph ? ` data-placeholder="${esc(ph)}"` : '') + `>${esc(val ?? '')}</span>`;
+}
+
+function loreView(lore = {}, factions = []) {
+  let html = '';
+  for (const k of LORE_ORDER) {
+    if (!(k in lore) && !lore[k]) continue;          // only show fields that exist
+    html += `<div class="lore-item"><div class="k">${k.replace(/_/g,' ')}</div>` +
+      `<p>${ed(`data-edit="lore" data-key="${k}"`, lore[k], 'Add ' + k.replace(/_/g,' ') + '…')}</p></div>`;
+  }
+  if (factions.length) {
+    html += `<div class="lore-item"><div class="k">factions</div><p>` +
+      factions.map((f,i) =>
+        `${ed(`data-edit="faction" data-idx="${i}" data-key="name"`, f.name, 'name')} — ` +
+        ed(`data-edit="faction" data-idx="${i}" data-key="goal"`, f.goal || f.description || '', 'goal')
+      ).join('<br>') + `</p></div>`;
+  }
+  return html || '<p class="hint">No lore yet — brain-dump some above.</p>';
+}
+
+// idx = index into currentWorld.characters (so edits map back); omit for read-only previews
+function charCard(c, badge, idx) {
+  const b = badge ? `<span class="badge ${badge==='new'?'new':'upd'}">${badge}</span>` : '';
+  const editable = (idx !== undefined && idx !== null);
+  const line = (label, key, val) => {
+    if (!editable && !val) return '';
+    return `<p><span class="k">${label}.</span> ` +
+      (editable ? ed(`data-edit="char" data-idx="${idx}" data-key="${key}"`, val, 'Add ' + label.toLowerCase() + '…')
+                : esc(val)) + `</p>`;
+  };
+  const name = editable ? ed(`data-edit="char" data-idx="${idx}" data-key="name"`, c.name, 'Name') : esc(c.name);
+  const role = editable ? ed(`data-edit="char" data-idx="${idx}" data-key="role"`, c.role, 'role')
+                        : (c.role ? esc(c.role) : '');
+  return `<div class="card"><h4>${name}${b}</h4>` +
+    ((editable || c.role) ? `<div class="role">${role}</div>` : '') +
+    line('Personality', 'personality', c.personality) +
+    line('Looks', 'physical_description', c.physical_description) +
+    line('Backstory', 'backstory', c.backstory) +
+    line('Voice', 'voice_brief', c.voice_brief) +
+    `</div>`;
+}
+
+function renderCanon(w) {
+  $('canon').innerHTML =
+    loreView(w.lore, w.factions) +
+    (w.characters?.length
+      ? `<div class="cards">${w.characters.map((c,i) => charCard(c, null, i)).join('')}</div>` : '');
+}
+
+async function loadCanon(series) {
+  try {
+    const r = await fetch('/api/world?series=' + encodeURIComponent(series));
+    const w = await r.json();
+    const hasAny = (w.characters?.length || Object.keys(w.lore||{}).length);
+    if (!hasAny) {
+      currentWorld = null; currentSeries = '';
+      $('canon-panel').style.display = 'none';
+      return;
+    }
+    currentWorld = w; currentSeries = series;
+    $('canon-panel').style.display = 'block';
+    $('canon-title').textContent = (w.title || series) + ' — world bible';
+    renderCanon(w);
+    // keep the header in sync with the bible's title/premise
+    if (w.title) $('title').textContent = w.title;
+    if (w.lore?.premise) $('premise').textContent = w.lore.premise;
+  } catch (_) { $('canon-panel').style.display = 'none'; }
+}
+
+// ---------------- inline editing → save ----------------
+function setSaveStatus(msg, kind) {
+  const el = $('saveStatus');
+  el.textContent = msg;
+  el.className = kind || '';
+}
+
+function applyEdit(el) {
+  if (!currentWorld) return;
+  const kind = el.dataset.edit, val = el.textContent.trim();
+  if (kind === 'title') {
+    currentWorld.title = val;
+  } else if (kind === 'lore') {
+    currentWorld.lore = currentWorld.lore || {};
+    currentWorld.lore[el.dataset.key] = val;
+    if (el.dataset.key === 'premise') {
+      const p = $('premise'); if (p && p !== el) p.textContent = val;
+    }
+  } else if (kind === 'char') {
+    const c = currentWorld.characters?.[+el.dataset.idx]; if (c) c[el.dataset.key] = val;
+  } else if (kind === 'faction') {
+    const f = currentWorld.factions?.[+el.dataset.idx]; if (f) f[el.dataset.key] = val;
+  }
+}
+
+async function saveWorld() {
+  if (!currentSeries || !currentWorld) {
+    setSaveStatus('Select or create a series before editing.', 'err');
+    return;
+  }
+  setSaveStatus('Saving…');
+  try {
+    const r = await fetch('/api/world', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        series: currentSeries,
+        title: currentWorld.title,
+        lore: currentWorld.lore || {},
+        factions: currentWorld.factions || [],
+        characters: currentWorld.characters || [],
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok || data.error) throw new Error(data.error || ('HTTP ' + r.status));
+    setSaveStatus('Saved ✓', 'ok');
+    setTimeout(() => { if ($('saveStatus').textContent === 'Saved ✓') setSaveStatus(''); }, 1500);
+  } catch (e) {
+    setSaveStatus('Save failed: ' + e.message, 'err');
+  }
+}
+
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveWorld, 700); }
+
+// delegated: any contenteditable with a data-edit attribute
+document.addEventListener('input', (e) => {
+  const el = e.target.closest && e.target.closest('[data-edit]');
+  if (!el) return;
+  applyEdit(el);
+  scheduleSave();
+});
+// save promptly when leaving a field (covers the debounce tail)
+document.addEventListener('blur', (e) => {
+  const el = e.target.closest && e.target.closest('[data-edit]');
+  if (!el) return;
+  applyEdit(el);
+  clearTimeout(saveTimer);
+  saveWorld();
+}, true);
+// Enter commits single-line-ish fields instead of inserting newlines in headings
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const el = e.target.closest && e.target.closest('[data-edit]');
+  if (el && (el.id === 'title' || el.dataset.edit === 'faction' ||
+             (el.dataset.edit === 'char' && (el.dataset.key === 'name' || el.dataset.key === 'role')))) {
+    e.preventDefault(); el.blur();
+  }
+});
+
+async function submitDump() {
+  const series = $('series').value.trim();
+  const text = $('dump').value.trim();
+  const st = $('status');
+  st.className = 'status';
+  if (!series) { st.textContent = 'Enter a series name first.'; return; }
+  if (!text)   { st.textContent = 'Write something to dump first.'; return; }
+  $('go').disabled = true;
+  st.textContent = 'Weaving lore from your notes…';
+  $('result').innerHTML = '';
+  try {
+    const r = await fetch('/api/braindump', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ series, text }),
+    });
+    const data = await r.json();
+    if (!r.ok || data.error) throw new Error(data.error || ('HTTP ' + r.status));
+
+    const added = data.characters_added || [], updated = data.characters_updated || [];
+    const loreN = (data.lore_updated || []).length;
+    st.textContent =
+      `Done${data.mock ? ' (mock mode — add API keys for live generation)' : ''}. ` +
+      `Lore fields: ${loreN}. Characters: +${added.length} new, ${updated.length} updated.`;
+
+    const byName = Object.fromEntries((data.world.characters || []).map(c => [c.name, c]));
+    const fresh = [...added.map(n => [n,'new']), ...updated.map(n => [n,'updated'])]
+      .filter(([n]) => byName[n]);
+    $('result').innerHTML =
+      `<div class="cards">${fresh.map(([n,b]) => charCard(byName[n], b)).join('')}</div>`;
+
+    $('dump').value = '';
+    loadSeries();
+    loadCanon(series);
+  } catch (e) {
+    st.className = 'status err';
+    st.textContent = 'Failed: ' + e.message;
+  } finally {
+    $('go').disabled = false;
+  }
+}
+
+$('go').addEventListener('click', submitDump);
+$('series').addEventListener('change', () => loadCanon($('series').value.trim()));
+
+if (location.protocol === 'file:') {
+  $('fileWarn').style.display = 'block';
+  $('go').disabled = true;
+} else {
+  loadSeries();
+}
 </script>
 </body>
 </html>

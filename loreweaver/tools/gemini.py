@@ -14,12 +14,27 @@ from .util import log, retry
 
 
 # ---------------------------------------------------------------- text -------
-@retry(times=3)
-def _live_text(prompt: str, json_mode: bool, system: str | None) -> str:
+def _client():
+    """A Gemini client with a generous request timeout (transient server
+    disconnects are common on large generations)."""
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    return genai.Client(
+        api_key=settings.GEMINI_API_KEY,
+        http_options=types.HttpOptions(timeout=180_000),  # ms
+    )
+
+
+# Retry transient connection drops (RemoteProtocolError etc.) with backoff.
+@retry(times=4, base_delay=2.0)
+def _live_text(prompt: str, json_mode: bool, system: str | None) -> str:
+    from google.genai import types
+
+    # Keep a named reference to the client for the whole call: if it is only a
+    # temporary (e.g. _client().models...), CPython can finalise it mid-request
+    # and close its HTTP connection -> "Cannot send a request, client closed".
+    client = _client()
     config = types.GenerateContentConfig(
         system_instruction=system,
         response_mime_type="application/json" if json_mode else None,
@@ -34,7 +49,19 @@ def generate_text(prompt: str, *, json_mode: bool = False, system: str | None = 
     if settings.mock_mode():
         return _mock_text(prompt, json_mode)
     log("gemini", f"generate_text (json={json_mode}, {len(prompt)} chars)")
-    return _live_text(prompt, json_mode, system)
+    try:
+        return _live_text(prompt, json_mode, system)
+    except Exception as e:  # noqa: BLE001
+        if settings.fallback_mock():
+            log("gemini", f"live failed ({type(e).__name__}); falling back to mock content")
+            return _mock_text(prompt, json_mode)
+        raise RuntimeError(
+            f"Gemini call failed after retries ({type(e).__name__}: {e}). "
+            f"Check GEMINI_TEXT_MODEL ('{settings.GEMINI_TEXT_MODEL}') is a valid, "
+            "available model and that GEMINI_API_KEY is a Gemini API key (usually "
+            "starts with 'AIza'). Set LOREWEAVER_MOCK=1 to run fully offline, or "
+            "LOREWEAVER_FALLBACK_MOCK=1 to auto-degrade to mock on live errors."
+        ) from e
 
 
 def generate_json(prompt: str, *, system: str | None = None) -> object:
@@ -47,31 +74,83 @@ def generate_json(prompt: str, *, system: str | None = None) -> object:
 
 
 # --------------------------------------------------------------- image -------
-@retry(times=3)
+@retry(times=4, base_delay=2.0)
 def _live_image(prompt: str, out_path: str) -> str:
-    from google import genai
+    import base64
+
     from google.genai import types
 
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    result = client.models.generate_images(
-        model=settings.GEMINI_IMAGE_MODEL,
-        prompt=prompt,
-        config=types.GenerateImagesConfig(number_of_images=1),
+    client = _client()  # hold the reference (see _live_text)
+    model = settings.GEMINI_IMAGE_MODEL
+
+    # Imagen models use the predict-style generate_images endpoint...
+    if model.lower().startswith("imagen"):
+        result = client.models.generate_images(
+            model=model, prompt=prompt,
+            config=types.GenerateImagesConfig(number_of_images=1),
+        )
+        result.generated_images[0].image.save(out_path)
+        return out_path
+
+    # ...Gemini "flash-image" models return image bytes via generate_content.
+    resp = client.models.generate_content(
+        model=model, contents=prompt,
+        config=types.GenerateContentConfig(response_modalities=["TEXT", "IMAGE"]),
     )
-    result.generated_images[0].image.save(out_path)
-    return out_path
+    for cand in (resp.candidates or []):
+        for part in (getattr(cand.content, "parts", None) or []):
+            inline = getattr(part, "inline_data", None)
+            if inline and inline.data:
+                data = inline.data
+                if isinstance(data, str):
+                    data = base64.b64decode(data)
+                with open(out_path, "wb") as f:
+                    f.write(data)
+                return out_path
+    raise RuntimeError("Gemini returned no image data for the cover prompt")
 
 
 def generate_image(prompt: str, out_path: str) -> str:
     if settings.mock_mode():
         return _mock_image(prompt, out_path)
     log("gemini", f"generate_image -> {out_path}")
-    return _live_image(prompt, out_path)
+    try:
+        return _live_image(prompt, out_path)
+    except Exception as e:  # noqa: BLE001
+        if settings.fallback_mock():
+            log("gemini", f"image gen failed ({type(e).__name__}); using mock cover")
+            return _mock_image(prompt, out_path)
+        raise
 
 
 # ----------------------------------------------------------------- mock ------
 def _seeded(prompt: str) -> int:
     return int(hashlib.sha1(prompt.encode()).hexdigest(), 16)
+
+
+def _mock_attribution(prompt: str) -> dict:
+    """Mock a single per-quote speaker attribution.
+
+    Parses the KNOWN CHARACTERS list out of the prompt and deterministically
+    picks one (seeded by the quoted line) so offline runs are stable.
+    """
+    import ast
+
+    chars: list[str] = []
+    for line in prompt.splitlines():
+        if line.startswith("KNOWN CHARACTERS:"):
+            try:
+                chars = ast.literal_eval(line.split(":", 1)[1].strip())
+            except Exception:  # noqa: BLE001
+                chars = []
+            break
+    quote = ""
+    for line in prompt.splitlines():
+        if line.startswith("QUOTED LINE:"):
+            quote = line.split(":", 1)[1].strip()
+            break
+    speaker = chars[_seeded(quote) % len(chars)] if chars else "Unknown"
+    return {"speaker": speaker, "emotion": "neutral"}
 
 
 def _mock_text(prompt: str, json_mode: bool) -> str:
@@ -80,13 +159,19 @@ def _mock_text(prompt: str, json_mode: bool) -> str:
     # overlapping words (the bible prompt mentions "concept"; the QA and outline
     # prompts embed the world bible). Check the most specific intent first.
     if json_mode:
+        if "brain-dump" in p:  # most specific: the braindumper intent
+            return _json.dumps(_MOCK_BRAINDUMP)
         if "continuity editor" in p or "verdict" in p:
             return _json.dumps({"verdict": "pass",
                                 "notes": ["Canon consistent.", "Safe content."]})
+        if "new named characters" in p or "character sheet" in p:
+            return _json.dumps(_MOCK_NEW_CHARACTERS)
         if "outline" in p or "chapters" in p:
             return _json.dumps(_MOCK_OUTLINE)
         if "world bible" in p:
             return _json.dumps(_MOCK_BIBLE)
+        if "attribute the quoted line" in p:  # per-quote speaker attribution
+            return _json.dumps(_mock_attribution(prompt))
         if "performance script" in p or "script" in p:
             return _json.dumps(_MOCK_SCRIPT_LINES)
         if "concept" in p:
@@ -101,7 +186,7 @@ def _mock_text(prompt: str, json_mode: bool) -> str:
                             "https://example.org/marine-archaeology"],
             })
         return _json.dumps({})
-    if "rolling summary" in p:
+    if "update the rolling" in p:  # the summary-writing instruction specifically
         return "Maren recovered the first salt-memory and learned the Archive is sinking faster than recorded."
     # default prose (a chapter). Repeated to a believable chapter length so the
     # QA length gate passes cleanly in offline mock-mode demos.
@@ -159,14 +244,69 @@ _MOCK_BIBLE = {
     ],
     "characters": [
         {"name": "Narrator", "role": "narrator", "personality": "measured, intimate",
+         "physical_description": "unseen guide to the drowned world",
+         "backstory": "An archivist of the Tidebound recounting events long after the fact.",
+         "quirks": "addresses the listener directly in moments of doubt",
+         "speaking_style": "unhurried, lyrical, fond of tidal metaphors",
          "voice_brief": "warm mid-range storyteller, unhurried, faint coastal lilt"},
-        {"name": "Maren", "role": "protagonist", "personality": "stubborn, grief-driven archivist",
+        {"name": "Maren", "role": "protagonist",
+         "personality": "stubborn, grief-driven archivist",
+         "physical_description": "woman in her late 30s, salt-cracked hands, a pale scar along "
+                                 "one wrist, close-cropped grey-streaked hair",
+         "backstory": "Lost her sister to the Undertow and now dives to recover the memories "
+                      "the sea is erasing, refusing to let the past drown.",
+         "quirks": "talks to the lantern-fish; counts breaths before a dive",
+         "speaking_style": "terse, clipped sentences that soften when she speaks of the dead",
          "voice_brief": "woman, late 30s, low alto, weathered, quiet resolve"},
         {"name": "Coll", "role": "rival diver", "personality": "reckless charmer",
+         "physical_description": "wiry man in his 20s, sun-bleached hair, a gap-toothed grin",
+         "backstory": "A freelance memory-diver who sells what he finds to the highest bidder.",
+         "quirks": "flips a salt-coin when thinking; never stops talking underwater",
+         "speaking_style": "fast, sardonic, trails off into half-jokes",
          "voice_brief": "man, 20s, bright tenor, fast cadence, sardonic"},
     ],
     "central_conflict": "Maren must decide which memories are worth the cost of her own.",
     "visual_identity": "deep teal and salt-white, bioluminescent accents, drowned gothic spires",
+}
+
+_MOCK_BRAINDUMP = {
+    "lore": {
+        "premise": "A drowned world where memory is the only currency that outlasts the tide.",
+        "tone": "melancholic wonder, slow-burn mystery",
+        "geography": "Archive-spires and salt-reefs rising over sunken cities.",
+        "magic_system": "Memories crystallise into salt; reading one costs a memory of equal "
+                        "weight. The sea always takes something back.",
+        "central_conflict": "Who decides which memories are worth saving — and at what cost.",
+        "factions": [
+            {"name": "The Tidebound", "goal": "preserve memory before erasure"},
+            {"name": "The Undertow", "goal": "let the past drown so the world can move on"},
+        ],
+    },
+    "characters": [
+        {"name": "Maren", "role": "protagonist",
+         "personality": "stubborn, grief-driven archivist",
+         "physical_description": "woman in her late 30s, salt-cracked hands, a pale scar along "
+                                 "one wrist, close-cropped grey-streaked hair",
+         "backstory": "Lost her sister to the Undertow and now dives to recover memories the "
+                      "sea is erasing.",
+         "quirks": "talks to the lantern-fish; counts breaths before a dive",
+         "speaking_style": "terse, clipped sentences that soften when she speaks of the dead",
+         "voice_brief": "woman, late 30s, low alto, weathered, quiet resolve"},
+    ],
+}
+
+_MOCK_NEW_CHARACTERS = {
+    "characters": [
+        {"name": "The Salt-Warden", "role": "antagonist",
+         "personality": "implacable, sorrowful keeper of the deep archive",
+         "physical_description": "a towering figure crusted in living salt, eyes like drowned "
+                                 "lanterns, voice that echoes as if from underwater",
+         "backstory": "Once human, bound by the Tidebound to guard the oldest memories until "
+                      "they are claimed — a duty that has slowly calcified him into salt.",
+         "quirks": "speaks only in the third person; weeps brine when he lies",
+         "speaking_style": "slow, formal, archaic cadence with long pauses",
+         "voice_brief": "man, ancient, deep resonant bass, slow and grave, hollow echo"},
+    ]
 }
 
 _MOCK_OUTLINE = {

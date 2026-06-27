@@ -14,7 +14,12 @@ class CharacterBrief(TypedDict, total=False):
     name: str
     role: str
     personality: str
-    voice_brief: str  # age, timbre, accent, temperament -> drives Voice Design
+    physical_description: str
+    backstory: str
+    quirks: str           # mannerisms, tics, habits
+    speaking_style: str   # diction, rhythm, catchphrases, dialect
+    voice_brief: str      # age, timbre, accent, temperament -> drives casting
+    first_seen_chapter: int
 
 
 class WorldConcept(TypedDict, total=False):
@@ -56,6 +61,7 @@ class SeriesState(TypedDict, total=False):
     series_id: str
     mode: Literal["new_series", "next_chapter"]
 
+    braindump: str             # freeform writer notes -> mined into canon
     world_concept: WorldConcept | None
     world_bible: WorldBible | None
     chapter_outline: list[ChapterBeat]

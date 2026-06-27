@@ -26,8 +26,27 @@ def run(state: SeriesState) -> dict:
     thumb = state.get("covers", {}).get("thumb", cover)
 
     notes_sources = (state.get("world_concept") or {}).get("sources", [])
+
+    # Per-chapter synopsis for the show notes / Summary tab. Prefer a fresh
+    # synopsis of THIS chapter's text; fall back to the rolling summary, then the
+    # premise, so the field is always populated even in trimmed/mock runs.
+    synopsis = ""
+    draft = state.get("chapter_draft", "")
+    if draft:
+        try:
+            from ..tools import gemini
+            synopsis = gemini.generate_text(
+                "Write a 2-3 sentence spoiler-light synopsis of this audiobook chapter "
+                "for podcast show notes. Present tense, no preamble.\n\n"
+                f"CHAPTER {chapter} TEXT:\n{draft[:6000]}"
+            ).strip()
+        except Exception as e:  # noqa: BLE001
+            log("publisher", f"synopsis generation failed ({e}); using fallback")
+    if not synopsis:
+        synopsis = state.get("rolling_summary", "") or bible.get("premise", "")
+
     show_notes = (
-        f"{bible.get('premise','')}\n\nAutonomously written, voiced, and published by "
+        f"{synopsis}\n\nAutonomously written, voiced, and published by "
         f"Loreweaver agents.\nInspiration: {', '.join(notes_sources)}"
     )
 

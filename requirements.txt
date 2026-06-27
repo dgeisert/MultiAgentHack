@@ -1,5 +1,6 @@
 # Core orchestration
 langgraph>=0.2.0
+langgraph-checkpoint-sqlite>=2.0.0   # resume interrupted runs
 
 # Sponsor tools (live mode)
 google-genai>=1.0.0             # Gemini text + image (new unified SDK)
@@ -9,6 +10,9 @@ tavily-python>=0.5.0            # web search / crawl
 # Publishing
 google-api-python-client>=2.0.0 # YouTube upload (live)
 google-auth-oauthlib>=1.0.0
+
+# Lore RAG (vector retrieval for chapter generation)
+numpy>=1.24.0                  # cosine search over the self-contained lore vector DB
 
 # Utilities
 Pillow>=10.0.0                  # cover resizing / mock covers

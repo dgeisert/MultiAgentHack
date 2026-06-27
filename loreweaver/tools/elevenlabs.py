@@ -21,6 +21,8 @@ from .util import log, retry
 # Real ElevenLabs premade voice ids with metadata — used directly in mock mode
 # and as a fallback if the live catalog can't be fetched.
 _MOCK_CATALOG = [
+    {"voice_id": "cgSgspJ2msm6clMCkdW9", "name": "Jessica", "gender": "female",
+     "age": "young", "accent": "american", "description": "expressive, warm narration"},
     {"voice_id": "21m00Tcm4TlvDq8ikWAM", "name": "Rachel", "gender": "female",
      "age": "young", "accent": "american", "description": "calm, even narration"},
     {"voice_id": "pNInz6obpgDQGcFmaJgB", "name": "Adam", "gender": "male",

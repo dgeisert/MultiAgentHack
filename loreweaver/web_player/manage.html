@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Loreweaver — Manage Generations</title>
+<style>
+  :root { --bg:#0a1014; --panel:#10212a; --teal:#2dd4bf; --salt:#e7f6f2; --muted:#7fa6a0;
+          --line:#1c3a44; --danger:#ff7a7a; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,Segoe UI,Roboto,sans-serif;
+         background:radial-gradient(1200px 600px at 70% -10%,#13313a,#0a1014); color:var(--salt); }
+  a { color:var(--teal); text-decoration:none; }
+  header { padding:36px 24px 8px; max-width:1000px; margin:0 auto; }
+  h1 { margin:0; font-size:30px; letter-spacing:.5px; }
+  .sub { color:var(--muted); margin-top:6px; font-size:14px; }
+  main { max-width:1000px; margin:0 auto; padding:8px 24px 80px; }
+
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px;
+           padding:18px 20px; margin:16px 0; }
+  .panel h2 { margin:0 0 10px; font-size:18px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  input { background:#0a1014; color:var(--salt); border:1px solid var(--line);
+          border-radius:8px; padding:9px 11px; font-size:14px; min-width:220px; }
+  button { font-family:inherit; font-size:13px; background:var(--teal); color:#06231f;
+           border:0; border-radius:8px; padding:9px 14px; font-weight:600; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--teal); border:1px solid var(--teal); }
+  button.danger { background:transparent; color:var(--danger); border:1px solid var(--danger); }
+  button:disabled { opacity:.45; cursor:default; }
+  .status { font-size:13px; color:var(--muted); min-height:18px; }
+  .status.err { color:var(--danger); }
+
+  .series { background:var(--panel); border:1px solid var(--line); border-radius:14px;
+            padding:16px 18px; margin:14px 0; }
+  .series-head { display:flex; gap:14px; align-items:flex-start; }
+  .series-head img { width:64px; height:64px; border-radius:10px; object-fit:cover;
+                     background:#08303a; flex:none; }
+  .series-head .meta { flex:1; min-width:0; }
+  .series-head h3 { margin:0 0 3px; font-size:18px; }
+  .series-head .id { color:var(--muted); font-size:12px; }
+  .series-head p { margin:6px 0 0; color:var(--muted); font-size:13px; line-height:1.5;
+                   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+                   overflow:hidden; }
+  .pill { display:inline-block; font-size:11px; color:var(--teal);
+          border:1px solid var(--teal); border-radius:999px; padding:2px 9px; margin-right:6px; }
+  .acts { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+
+  .chapters { margin-top:12px; border-top:1px solid var(--line); padding-top:10px; }
+  .chap { display:flex; gap:12px; align-items:center; padding:8px 0;
+          border-bottom:1px solid rgba(28,58,68,.5); }
+  .chap:last-child { border-bottom:0; }
+  .chap .n { font-size:12px; color:var(--teal); width:46px; flex:none; font-weight:600; }
+  .chap .t { flex:1; min-width:0; font-size:13.5px; }
+  .chap .t small { color:var(--muted); display:block; }
+  .chap audio { height:30px; }
+  .empty { color:var(--muted); font-size:13px; padding:6px 0; }
+
+  details.detail { margin-top:12px; }
+  details.detail > summary { cursor:pointer; color:var(--teal); font-size:13px; }
+  .lore-item { margin:10px 0; }
+  .lore-item .k { color:var(--teal); font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+  .lore-item p { margin:3px 0 0; font-size:13px; line-height:1.55; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+           gap:10px; margin-top:10px; }
+  .card { background:#0c1c24; border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+  .card h4 { margin:0 0 4px; font-size:14px; }
+  .card .role { color:var(--teal); font-size:11px; }
+  .card p { margin:5px 0 0; font-size:12px; color:var(--muted); line-height:1.5; }
+
+  /* jobs dock */
+  #jobs { position:fixed; right:18px; bottom:18px; width:340px; max-width:calc(100vw - 36px);
+          background:#0c1c24; border:1px solid var(--line); border-radius:12px;
+          box-shadow:0 12px 40px rgba(0,0,0,.5); font-size:13px; z-index:50; }
+  #jobs h4 { margin:0; padding:12px 14px; border-bottom:1px solid var(--line); font-size:13px;
+             display:flex; justify-content:space-between; align-items:center; }
+  #jobs .body { max-height:50vh; overflow:auto; padding:6px 0; }
+  .job { padding:9px 14px; border-bottom:1px solid rgba(28,58,68,.5); }
+  .job:last-child { border-bottom:0; }
+  .job .top { display:flex; justify-content:space-between; gap:8px; align-items:center; }
+  .job .lbl { font-size:12.5px; }
+  .badge { font-size:10px; border-radius:999px; padding:2px 8px; text-transform:uppercase;
+           letter-spacing:.4px; }
+  .badge.queued { background:rgba(127,166,160,.2); color:var(--muted); }
+  .badge.running { background:rgba(45,212,191,.2); color:var(--teal); }
+  .badge.done { background:rgba(80,200,120,.2); color:#7be0a3; }
+  .badge.error { background:rgba(255,122,122,.2); color:var(--danger); }
+  .job pre { margin:8px 0 0; max-height:140px; overflow:auto; background:#06141a;
+             border:1px solid var(--line); border-radius:8px; padding:8px; font-size:11px;
+             white-space:pre-wrap; color:var(--muted); }
+  .spin { display:inline-block; width:9px; height:9px; border-radius:50%;
+          background:var(--teal); animation:pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:1} }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙ Manage generations</h1>
+  <div class="sub">Spawn worlds, drip new chapters, regenerate or delete — the autonomous
+    pipeline, driven from here. <a href="index.html">← back to player</a></div>
+</header>
+
+<main>
+  <section class="panel" id="fileWarn" style="display:none;border-color:var(--danger)">
+    <h2 style="color:var(--danger)">⚠ Opened as a local file</h2>
+    <p class="sub" style="margin:0">This page is open via <code>file://</code>, so the browser
+      blocks the management API (the CORS error you saw). Start the server and open it over HTTP
+      instead:</p>
+    <pre style="background:#06141a;border:1px solid var(--line);border-radius:8px;padding:10px;
+                margin:10px 0 0;overflow:auto">python -m loreweaver.main serve
+# then open  http://localhost:8000/manage.html</pre>
+  </section>
+
+  <section class="panel">
+    <h2>Spawn a new series</h2>
+    <div class="row">
+      <input id="newid" placeholder="series id — e.g. tidebound" />
+      <button id="create">Generate world + chapter 1</button>
+      <span class="status" id="createStatus"></span>
+    </div>
+    <p class="sub" style="margin:10px 0 0">Runs the full agent graph: research → world bible →
+      author → QA → casting → audio → cover → publish. Watch progress in the jobs panel.</p>
+  </section>
+
+  <div id="list"><div class="empty">Loading series…</div></div>
+</main>
+
+<div id="jobs" style="display:none">
+  <h4><span>Generation jobs</span><button class="ghost" id="clearJobs" style="padding:3px 8px;font-size:11px">hide</button></h4>
+  <div class="body" id="jobsBody"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => (s ?? '').toString().replace(/[&<>"]/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function api(method, path, body) {
+  const opt = { method, headers: {} };
+  if (body !== undefined) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  let data = {}; try { data = await r.json(); } catch (_) {}
+  if (!r.ok && !data.job) throw new Error(data.error || ('HTTP ' + r.status));
+  return data;
+}
+
+// ---------------- series list ----------------
+const openDetails = new Set();
+
+async function loadList() {
+  let series = [];
+  try { ({ series = [] } = await api('GET', '/api/gen/series')); }
+  catch (e) { $('list').innerHTML = `<div class="empty">Couldn't reach the API: ${esc(e.message)}</div>`; return; }
+
+  if (!series.length) {
+    $('list').innerHTML = '<div class="empty">No series yet. Spawn one above to get started.</div>';
+    return;
+  }
+  $('list').innerHTML = series.map(seriesCard).join('');
+  // re-open any expanded detail panels + load them
+  for (const sid of openDetails) {
+    const d = document.querySelector(`details[data-sid="${cssEsc(sid)}"]`);
+    if (d) { d.open = true; loadDetail(sid); }
+  }
+}
+
+const cssEsc = (s) => s.replace(/["\\]/g, '\\$&');
+
+function seriesCard(s) {
+  const cover = s.cover_url ? `<img src="${esc(s.cover_url)}" alt="">` : '<img alt="">';
+  return `<div class="series" data-sid="${esc(s.series_id)}">
+    <div class="series-head">
+      ${cover}
+      <div class="meta">
+        <h3>${esc(s.title || s.series_id)}</h3>
+        <div class="id">${esc(s.series_id)}</div>
+        <div style="margin-top:8px">
+          <span class="pill">${s.episode_count} chapter${s.episode_count===1?'':'s'}</span>
+          <span class="pill">cursor: ch${s.current_chapter}</span>
+          ${s.has_world ? '' : '<span class="pill">no world bible</span>'}
+        </div>
+        ${s.premise ? `<p>${esc(s.premise)}</p>` : ''}
+      </div>
+    </div>
+    <div class="acts">
+      <button onclick="nextChapter('${esc(s.series_id)}', this)">+ Next chapter</button>
+      <button class="ghost" onclick="toggleDetail('${esc(s.series_id)}', this)">View chapters &amp; bible</button>
+      <button class="danger" onclick="deleteSeries('${esc(s.series_id)}')">Delete series</button>
+    </div>
+    <details class="detail" data-sid="${esc(s.series_id)}"
+             ontoggle="onToggle('${esc(s.series_id)}', this)">
+      <summary>Chapters, cast &amp; world bible</summary>
+      <div class="detail-body" id="detail-${esc(s.series_id)}"><div class="empty">Loading…</div></div>
+    </details>
+  </div>`;
+}
+
+function toggleDetail(sid, btn) {
+  const d = document.querySelector(`details[data-sid="${cssEsc(sid)}"]`);
+  if (d) d.open = !d.open;
+}
+function onToggle(sid, d) {
+  if (d.open) { openDetails.add(sid); loadDetail(sid); }
+  else openDetails.delete(sid);
+}
+
+async function loadDetail(sid) {
+  const box = $('detail-' + sid);
+  if (!box) return;
+  try {
+    const d = await api('GET', '/api/gen/series/' + encodeURIComponent(sid));
+    box.innerHTML = chaptersView(d) + castView(d) + bibleView(d);
+  } catch (e) { box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+function chaptersView(d) {
+  const eps = d.episodes || [];
+  if (!eps.length) return '<div class="chapters"><div class="empty">No chapters published yet.</div></div>';
+  return '<div class="chapters">' + eps.map(ep => `
+    <div class="chap">
+      <div class="n">ch ${ep.chapter}</div>
+      <div class="t">${esc(ep.title)}<small>${esc((ep.pub_date||'').slice(0,16))}</small></div>
+      ${ep.audio_url ? `<audio controls preload="none" src="${esc(ep.audio_url)}"></audio>` : ''}
+      <button class="ghost" onclick="regen('${esc(d.series_id)}', ${ep.chapter}, this)">Regenerate</button>
+      <button class="danger" onclick="delChapter('${esc(d.series_id)}', ${ep.chapter})">Delete</button>
+    </div>`).join('') + '</div>';
+}
+
+function castView(d) {
+  const cast = (d.cast || []).filter(c => c.character);
+  if (!cast.length) return '';
+  return `<details class="detail"><summary>Cast &amp; voices (${cast.length})</summary>
+    <div class="cards">${cast.map(c => `<div class="card">
+      <h4>${esc(c.character)}</h4>
+      ${c.voice_id ? `<div class="role">voice: ${esc(c.voice_id)}</div>` : ''}
+      ${c.voice_brief ? `<p>${esc(c.voice_brief)}</p>` : ''}
+    </div>`).join('')}</div></details>`;
+}
+
+function bibleView(d) {
+  const b = d.world_bible || {};
+  const order = ['premise','tone','geography','magic_system','central_conflict','visual_identity'];
+  let lore = '';
+  for (const k of order) if (b[k])
+    lore += `<div class="lore-item"><div class="k">${k.replace(/_/g,' ')}</div><p>${esc(b[k])}</p></div>`;
+  if (d.rolling_summary)
+    lore += `<div class="lore-item"><div class="k">story so far</div><p>${esc(d.rolling_summary)}</p></div>`;
+  if (!lore) return '';
+  return `<details class="detail"><summary>World bible</summary><div style="margin-top:8px">${lore}</div></details>`;
+}
+
+// ---------------- actions ----------------
+async function createSeries() {
+  const sid = $('newid').value.trim();
+  const st = $('createStatus'); st.className = 'status';
+  if (!sid) { st.textContent = 'Enter a series id first.'; return; }
+  $('create').disabled = true; st.textContent = 'Queuing…';
+  try {
+    const { job } = await api('POST', '/api/gen/series', { series_id: sid });
+    st.textContent = 'Queued — generating ' + sid + '.';
+    $('newid').value = '';
+    trackJobs();
+  } catch (e) { st.className = 'status err'; st.textContent = e.message; }
+  finally { $('create').disabled = false; }
+}
+
+async function nextChapter(sid, btn) {
+  btn.disabled = true;
+  try { await api('POST', `/api/gen/series/${encodeURIComponent(sid)}/next`); trackJobs(); }
+  catch (e) { alert('Failed: ' + e.message); }
+  finally { btn.disabled = false; }
+}
+
+async function regen(sid, ch, btn) {
+  if (!confirm(`Regenerate chapter ${ch} of "${sid}"? The existing chapter ${ch} will be replaced.`)) return;
+  btn.disabled = true;
+  try { await api('POST', `/api/gen/series/${encodeURIComponent(sid)}/chapter/${ch}/regenerate`); trackJobs(); }
+  catch (e) { alert('Failed: ' + e.message); }
+  finally { btn.disabled = false; }
+}
+
+async function delChapter(sid, ch) {
+  if (!confirm(`Delete chapter ${ch} of "${sid}"? This removes its audio, cover and feed entry.`)) return;
+  try { await api('DELETE', `/api/gen/series/${encodeURIComponent(sid)}/chapter/${ch}`); loadList(); }
+  catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function deleteSeries(sid) {
+  if (!confirm(`Delete the entire "${sid}" series — world bible, all chapters and assets? This cannot be undone.`)) return;
+  try { await api('DELETE', '/api/gen/series/' + encodeURIComponent(sid)); openDetails.delete(sid); loadList(); }
+  catch (e) { alert('Failed: ' + e.message); }
+}
+
+// ---------------- jobs polling ----------------
+let pollTimer = null, lastActive = false;
+
+async function pollJobs() {
+  let jobs = [];
+  try { ({ jobs = [] } = await api('GET', '/api/gen/jobs')); } catch (_) { return; }
+  if (!jobs.length) { $('jobs').style.display = 'none'; return; }
+  $('jobs').style.display = 'block';
+  $('jobsBody').innerHTML = jobs.slice(0, 12).map(jobRow).join('');
+
+  const active = jobs.some(j => j.status === 'queued' || j.status === 'running');
+  if (!active && lastActive) loadList();      // a run just finished → refresh
+  lastActive = active;
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(pollJobs, active ? 1500 : 5000);
+}
+
+function jobRow(j) {
+  const dur = j.finished && j.started ? `${Math.round(j.finished - j.started)}s`
+            : j.started ? `${Math.round(Date.now()/1000 - j.started)}s` : '';
+  const tail = (j.log || '').slice(-1400);
+  return `<div class="job">
+    <div class="top">
+      <span class="lbl">${j.status==='running'?'<span class="spin"></span> ':''}${esc(j.label || j.kind)}</span>
+      <span class="badge ${j.status}">${j.status}</span>
+    </div>
+    <div class="sub" style="font-size:11px;color:var(--muted);margin-top:3px">${dur}${j.error?(' · '+esc(j.error)):''}</div>
+    ${tail ? `<details${j.status==='error'?' open':''}><summary style="font-size:11px;color:var(--teal);cursor:pointer">log</summary><pre>${esc(tail)}</pre></details>` : ''}
+  </div>`;
+}
+
+function trackJobs() { lastActive = true; pollJobs(); }
+
+$('create').addEventListener('click', createSeries);
+$('newid').addEventListener('keydown', e => { if (e.key === 'Enter') createSeries(); });
+$('clearJobs').addEventListener('click', () => $('jobs').style.display = 'none');
+
+if (location.protocol === 'file:') {
+  $('fileWarn').style.display = 'block';
+  $('list').innerHTML = '';
+  $('create').disabled = true;
+} else {
+  loadList();
+  pollJobs();
+}
+</script>
+</body>
+</html>

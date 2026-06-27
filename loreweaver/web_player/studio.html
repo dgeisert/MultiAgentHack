@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Loreweaver — Studio</title>
+<style>
+  :root { --bg:#0a1014; --panel:#10212a; --teal:#2dd4bf; --salt:#e7f6f2; --muted:#7fa6a0;
+          --line:#1c3a44; --danger:#ff7a7a; --gold:#e8c16a; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,Segoe UI,Roboto,sans-serif;
+         background:radial-gradient(1200px 600px at 70% -10%,#13313a,#0a1014); color:var(--salt); }
+  a { color:var(--teal); text-decoration:none; }
+  header { padding:36px 24px 8px; max-width:1040px; margin:0 auto; }
+  h1 { margin:0; font-size:30px; letter-spacing:.5px; }
+  .sub { color:var(--muted); margin-top:6px; font-size:14px; line-height:1.5; }
+  main { max-width:1040px; margin:0 auto; padding:8px 24px 90px; }
+
+  .steps { display:flex; gap:8px; margin:18px 0 4px; flex-wrap:wrap; }
+  .step { font-size:12px; color:var(--muted); border:1px solid var(--line); border-radius:999px;
+          padding:4px 12px; }
+  .step.on { color:var(--teal); border-color:var(--teal); }
+  .step b { color:var(--gold); }
+
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px;
+           padding:18px 20px; margin:16px 0; }
+  .panel h2 { margin:0 0 4px; font-size:18px; }
+  .panel .hint { color:var(--muted); font-size:13px; margin:0 0 12px; line-height:1.5; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  label.fld { font-size:12px; color:var(--muted); display:block; margin:0 0 5px; }
+  input, select, textarea { background:#0a1014; color:var(--salt); border:1px solid var(--line);
+          border-radius:8px; padding:10px 12px; font-size:14px; font-family:inherit; }
+  input { min-width:200px; }
+  textarea { width:100%; min-height:160px; resize:vertical; line-height:1.6; }
+  button { font-family:inherit; font-size:13px; background:var(--teal); color:#06231f;
+           border:0; border-radius:8px; padding:10px 15px; font-weight:600; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--teal); border:1px solid var(--teal); }
+  button.danger { background:transparent; color:var(--danger); border:1px solid var(--danger); }
+  button.small { padding:6px 11px; font-size:12px; }
+  button:disabled { opacity:.45; cursor:default; }
+  .status { font-size:13px; color:var(--muted); min-height:18px; margin-top:8px; }
+  .status.err { color:var(--danger); }
+  .status.ok { color:var(--teal); }
+
+  .pill { display:inline-block; font-size:11px; color:var(--teal);
+          border:1px solid var(--teal); border-radius:999px; padding:2px 9px; margin:0 6px 6px 0; }
+  .pill.add { color:#7be0a3; border-color:#7be0a3; }
+  .pill.upd { color:var(--gold); border-color:var(--gold); }
+
+  /* framework list */
+  .fw { margin-top:6px; }
+  .fwitem { border:1px solid var(--line); border-radius:12px; margin:10px 0; overflow:hidden;
+            background:#0c1c24; }
+  .fwhead { display:flex; gap:12px; align-items:center; padding:12px 14px; }
+  .fwhead .n { font-size:12px; color:var(--teal); font-weight:700; width:54px; flex:none; }
+  .fwhead .ti { flex:1; min-width:0; }
+  .fwhead .ti h4 { margin:0; font-size:14.5px; }
+  .fwhead .ti small { color:var(--muted); font-size:12px; display:block; margin-top:2px; }
+  .state { font-size:10px; border-radius:999px; padding:2px 9px; text-transform:uppercase;
+           letter-spacing:.4px; white-space:nowrap; }
+  .state.draft { background:rgba(127,166,160,.18); color:var(--muted); }
+  .state.done { background:rgba(80,200,120,.2); color:#7be0a3; }
+  .state.busy { background:rgba(45,212,191,.2); color:var(--teal); }
+
+  /* tabs */
+  .tabbody { border-top:1px solid var(--line); padding:0 14px 14px; }
+  .tabs { display:flex; gap:6px; margin:12px 0; }
+  .tab { font-size:12px; color:var(--muted); background:transparent; border:1px solid var(--line);
+         border-radius:8px; padding:6px 14px; cursor:pointer; }
+  .tab.on { color:#06231f; background:var(--teal); border-color:var(--teal); font-weight:600; }
+  .tabpane { display:none; font-size:13.5px; line-height:1.7; color:var(--salt); }
+  .tabpane.on { display:block; }
+  .tabpane.txt { white-space:pre-wrap; max-height:420px; overflow:auto; background:#06141a;
+                 border:1px solid var(--line); border-radius:10px; padding:14px; color:#cfeae3; }
+  .tabpane.sum { color:#cfeae3; }
+  .tabpane audio { width:100%; margin-top:4px; }
+  .muted { color:var(--muted); font-size:13px; }
+  .wc { color:var(--muted); font-size:11px; margin-left:8px; }
+
+  /* jobs dock */
+  #jobs { position:fixed; right:18px; bottom:18px; width:340px; max-width:calc(100vw - 36px);
+          background:#0c1c24; border:1px solid var(--line); border-radius:12px;
+          box-shadow:0 12px 40px rgba(0,0,0,.5); font-size:13px; z-index:50; }
+  #jobs h4 { margin:0; padding:12px 14px; border-bottom:1px solid var(--line); font-size:13px;
+             display:flex; justify-content:space-between; align-items:center; }
+  #jobs .body { max-height:50vh; overflow:auto; padding:6px 0; }
+  .job { padding:9px 14px; border-bottom:1px solid rgba(28,58,68,.5); }
+  .job:last-child { border-bottom:0; }
+  .job .top { display:flex; justify-content:space-between; gap:8px; align-items:center; }
+  .badge { font-size:10px; border-radius:999px; padding:2px 8px; text-transform:uppercase; letter-spacing:.4px; }
+  .badge.queued { background:rgba(127,166,160,.2); color:var(--muted); }
+  .badge.running { background:rgba(45,212,191,.2); color:var(--teal); }
+  .badge.done { background:rgba(80,200,120,.2); color:#7be0a3; }
+  .badge.error { background:rgba(255,122,122,.2); color:var(--danger); }
+  .job pre { margin:8px 0 0; max-height:120px; overflow:auto; background:#06141a;
+             border:1px solid var(--line); border-radius:8px; padding:8px; font-size:11px;
+             white-space:pre-wrap; color:var(--muted); }
+  .spin { display:inline-block; width:9px; height:9px; border-radius:50%;
+          background:var(--teal); animation:pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:1} }
+</style>
+</head>
+<body>
+<header>
+  <h1>🜂 Loreweaver Studio</h1>
+  <div class="sub">Braindump your story → generate a chapter framework → produce each chapter
+    and review its summary, text and audio. <a href="manage.html">manage ›</a> ·
+    <a href="index.html">player ›</a></div>
+  <div class="steps">
+    <span class="step on">1 · <b>Braindump</b></span>
+    <span class="step">2 · Framework</span>
+    <span class="step">3 · Chapters</span>
+  </div>
+</header>
+
+<main>
+  <section class="panel" id="fileWarn" style="display:none;border-color:var(--danger)">
+    <h2 style="color:var(--danger)">⚠ Opened as a local file</h2>
+    <p class="hint" style="margin:0">This page needs the API. Start the server and open it over HTTP:</p>
+    <pre style="background:#06141a;border:1px solid var(--line);border-radius:8px;padding:10px;margin:10px 0 0;overflow:auto">python -m loreweaver.main serve
+# then open  http://localhost:8000/studio.html</pre>
+  </section>
+
+  <!-- STEP 1: BRAINDUMP -->
+  <section class="panel">
+    <h2>1 · Braindump</h2>
+    <p class="hint">Paste freeform notes — world, vibes, half-formed characters, plot scraps.
+      Loreweaver mines them into canon lore + character sheets, merging into the series each time.</p>
+    <div class="row" style="margin-bottom:12px">
+      <div>
+        <label class="fld" for="sid">Series id</label>
+        <input id="sid" placeholder="e.g. tidebound" />
+      </div>
+      <div>
+        <label class="fld" for="existing">Or load existing</label>
+        <select id="existing"><option value="">— pick a series —</option></select>
+      </div>
+    </div>
+    <textarea id="dump" placeholder="A drowned vertical world grown around a colossal World Tree. Magic is bioluminescent sap. A reluctant silt-scraper girl who can hear the Tree's heartbeat. The Tidewardens hoard the upper canopy..."></textarea>
+    <div class="row" style="margin-top:12px">
+      <button id="bdBtn">Mine braindump → canon</button>
+      <span class="status" id="bdStatus"></span>
+    </div>
+    <div id="bdResult" style="margin-top:12px"></div>
+  </section>
+
+  <!-- STEP 2: FRAMEWORK -->
+  <section class="panel" id="fwPanel" style="display:none">
+    <h2>2 · Chapter framework</h2>
+    <p class="hint">Generate a season-length outline from the world bible. Review it, then
+      produce chapters from it below. Rebuild any time — it won't touch chapters already made.</p>
+    <div class="row">
+      <div>
+        <label class="fld" for="fwCount">Chapters</label>
+        <input id="fwCount" type="number" min="1" max="24" value="6" style="min-width:90px" />
+      </div>
+      <button id="fwBtn" style="align-self:flex-end">Build framework</button>
+      <span class="status" id="fwStatus"></span>
+    </div>
+  </section>
+
+  <!-- STEP 3: CHAPTERS -->
+  <section class="panel" id="chPanel" style="display:none">
+    <h2>3 · Chapters</h2>
+    <p class="hint">Each framework beat becomes a chapter: authored, QA'd, voiced and published by
+      the agent pipeline. Open one to read its summary, full text, and listen to the audio.</p>
+    <div class="fw" id="fwList"></div>
+  </section>
+</main>
+
+<div id="jobs" style="display:none">
+  <h4><span>Generation jobs</span><button class="ghost small" id="hideJobs">hide</button></h4>
+  <div class="body" id="jobsBody"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => (s ?? '').toString().replace(/[&<>"]/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function api(method, path, body) {
+  const opt = { method, headers: {} };
+  if (body !== undefined) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  let data = {}; try { data = await r.json(); } catch (_) {}
+  if (!r.ok && !data.job) throw new Error(data.error || ('HTTP ' + r.status));
+  return data;
+}
+
+let SID = '';                 // active series
+let DETAIL = null;            // last /series/<sid> detail
+const openTabs = {};          // chapter -> active tab name (persist across reloads)
+
+function setStep(n) {
+  document.querySelectorAll('.steps .step').forEach((el, i) =>
+    el.classList.toggle('on', i <= n - 1));
+}
+
+// ---------------- step 1: braindump ----------------
+async function loadSeriesOptions() {
+  try {
+    const { series = [] } = await api('GET', '/api/gen/series');
+    $('existing').innerHTML = '<option value="">— pick a series —</option>' +
+      series.map(s => `<option value="${esc(s.series_id)}">${esc(s.title || s.series_id)} (ch${s.current_chapter})</option>`).join('');
+  } catch (_) {}
+}
+
+$('existing').addEventListener('change', e => {
+  const v = e.target.value;
+  if (!v) return;
+  $('sid').value = v;
+  SID = v;
+  $('bdResult').innerHTML = '<div class="muted">Loaded existing series. Add more notes above, or jump to the framework / chapters below.</div>';
+  $('fwPanel').style.display = 'block';
+  refreshSeries();
+});
+
+async function braindump() {
+  const sid = $('sid').value.trim();
+  const text = $('dump').value.trim();
+  const st = $('bdStatus'); st.className = 'status';
+  if (!sid) { st.className = 'status err'; st.textContent = 'Enter a series id.'; return; }
+  if (!text) { st.className = 'status err'; st.textContent = 'Paste some notes first.'; return; }
+  $('bdBtn').disabled = true; st.textContent = 'Mining notes into canon…';
+  try {
+    const r = await api('POST', '/api/braindump', { series: sid, text });
+    SID = sid;
+    st.className = 'status ok';
+    st.textContent = 'Canon updated' + (r.mock ? ' (mock mode)' : '') + '.';
+    $('bdResult').innerHTML = bdResultView(r);
+    $('dump').value = '';
+    $('fwPanel').style.display = 'block';
+    setStep(2);
+    await refreshSeries();
+    await loadSeriesOptions();
+  } catch (e) { st.className = 'status err'; st.textContent = e.message; }
+  finally { $('bdBtn').disabled = false; }
+}
+
+function bdResultView(r) {
+  const lore = (r.lore_updated || []).map(k => `<span class="pill">${esc(k.replace(/_/g,' '))}</span>`).join('');
+  const add = (r.characters_added || []).map(n => `<span class="pill add">+ ${esc(n)}</span>`).join('');
+  const upd = (r.characters_updated || []).map(n => `<span class="pill upd">~ ${esc(n)}</span>`).join('');
+  if (!lore && !add && !upd) return '<div class="muted">No new canon extracted from that dump.</div>';
+  return `<div><div class="muted" style="margin-bottom:6px">Extracted:</div>${lore}${add}${upd}</div>`;
+}
+
+// ---------------- step 2: framework ----------------
+async function buildFramework() {
+  if (!SID) { $('fwStatus').textContent = 'Braindump a series first.'; return; }
+  const count = parseInt($('fwCount').value, 10) || 6;
+  const st = $('fwStatus'); st.className = 'status';
+  $('fwBtn').disabled = true; st.textContent = 'Designing the season arc…';
+  try {
+    const r = await api('POST', `/api/gen/series/${encodeURIComponent(SID)}/framework`, { count });
+    st.className = 'status ok';
+    st.textContent = `Framework ready — ${ (r.chapter_outline||[]).length } chapters.`;
+    $('chPanel').style.display = 'block';
+    setStep(3);
+    await refreshSeries();
+    $('chPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) { st.className = 'status err'; st.textContent = e.message; }
+  finally { $('fwBtn').disabled = false; }
+}
+
+// ---------------- step 3: chapters ----------------
+async function refreshSeries() {
+  if (!SID) return;
+  try { DETAIL = await api('GET', '/api/gen/series/' + encodeURIComponent(SID)); }
+  catch (e) { return; }
+  const outline = DETAIL.chapter_outline || [];
+  const made = new Set((DETAIL.episodes || []).map(e => e.chapter));
+  if (outline.length) { $('fwPanel').style.display = 'block'; $('chPanel').style.display = 'block'; }
+
+  // chapter indexes to show: union of framework + any generated chapters
+  const idx = new Set(outline.map(o => o.index));
+  made.forEach(c => idx.add(c));
+  const rows = [...idx].sort((a, b) => a - b);
+  const nextC = (DETAIL.current_chapter || 0) + 1;
+
+  $('fwList').innerHTML = rows.map(i => {
+    const beat = outline.find(o => o.index === i) || { index: i, title: `Chapter ${i}` };
+    const done = made.has(i);
+    const isNext = i === nextC;
+    const state = done ? '<span class="state done">generated</span>'
+                       : '<span class="state draft">planned</span>';
+    const teaser = beat.synopsis || beat.beat || '';
+    const act = done
+      ? `<button class="ghost small" onclick="regen(${i},this)">Regenerate</button>`
+      : (isNext
+          ? `<button class="small" onclick="generate(${i},this)">Generate chapter ${i}</button>`
+          : `<button class="small" disabled title="Generate chapter ${nextC} first">Locked</button>`);
+    return `<div class="fwitem" data-ch="${i}">
+      <div class="fwhead">
+        <div class="n">CH ${i}</div>
+        <div class="ti"><h4>${esc(beat.title || ('Chapter ' + i))}</h4>
+          ${teaser ? `<small>${esc(teaser)}</small>` : ''}</div>
+        ${state}
+        <button class="ghost small" onclick="toggleTabs(${i},this)">${done ? 'Open' : 'Beat'}</button>
+        ${act}
+      </div>
+      <div class="tabbody" id="tb-${i}" style="display:none"></div>
+    </div>`;
+  }).join('') || '<div class="muted">No framework yet — build one above.</div>';
+
+  // re-open any chapter the user had expanded
+  for (const c of Object.keys(openTabs)) {
+    const tb = $('tb-' + c);
+    if (tb) { tb.style.display = 'block'; loadTabs(+c); }
+  }
+}
+
+async function toggleTabs(ch, btn) {
+  const tb = $('tb-' + ch);
+  if (!tb) return;
+  const show = tb.style.display === 'none';
+  tb.style.display = show ? 'block' : 'none';
+  if (show) { openTabs[ch] = openTabs[ch] || 'summary'; await loadTabs(ch); }
+  else delete openTabs[ch];
+}
+
+async function loadTabs(ch) {
+  const tb = $('tb-' + ch);
+  if (!tb) return;
+  let d;
+  try { d = await api('GET', `/api/gen/series/${encodeURIComponent(SID)}/chapter/${ch}`); }
+  catch (e) { tb.innerHTML = `<div class="muted">${esc(e.message)}</div>`; return; }
+
+  const active = openTabs[ch] || 'summary';
+  const audio = d.audio_url
+    ? `<audio controls preload="none" src="${esc(d.audio_url)}"></audio>`
+    : '<div class="muted">No audio yet — generate this chapter to voice it.</div>';
+  const text = d.text
+    ? esc(d.text)
+    : '';
+  const summary = d.summary || (d.beat && (d.beat.synopsis || d.beat.beat)) || '';
+
+  tb.innerHTML = `
+    <div class="tabs">
+      <button class="tab ${active==='summary'?'on':''}" onclick="pickTab(${ch},'summary')">Summary</button>
+      <button class="tab ${active==='text'?'on':''}" onclick="pickTab(${ch},'text')">Text${d.word_count?`<span class="wc">${d.word_count}w</span>`:''}</button>
+      <button class="tab ${active==='audio'?'on':''}" onclick="pickTab(${ch},'audio')">Audio</button>
+    </div>
+    <div class="tabpane sum ${active==='summary'?'on':''}" data-pane="summary">
+      ${summary ? esc(summary) : '<span class="muted">No summary yet.</span>'}
+      ${!d.generated ? '<div class="muted" style="margin-top:8px">Planned beat — not generated yet.</div>' : ''}
+    </div>
+    <div class="tabpane txt ${active==='text'?'on':''}" data-pane="text">
+      ${text || '<span class="muted">Chapter not generated yet.</span>'}
+    </div>
+    <div class="tabpane ${active==='audio'?'on':''}" data-pane="audio">
+      ${audio}
+    </div>`;
+}
+
+function pickTab(ch, name) {
+  openTabs[ch] = name;
+  const tb = $('tb-' + ch);
+  tb.querySelectorAll('.tab').forEach(b =>
+    b.classList.toggle('on', b.textContent.toLowerCase().startsWith(name)));
+  tb.querySelectorAll('.tabpane').forEach(p =>
+    p.classList.toggle('on', p.dataset.pane === name));
+}
+
+async function generate(ch, btn) {
+  btn.disabled = true; btn.textContent = 'Queued…';
+  try { await api('POST', `/api/gen/series/${encodeURIComponent(SID)}/next`); trackJobs(); }
+  catch (e) { alert('Failed: ' + e.message); btn.disabled = false; }
+}
+
+async function regen(ch, btn) {
+  if (!confirm(`Regenerate chapter ${ch}? The existing chapter ${ch} will be replaced.`)) return;
+  btn.disabled = true;
+  try { await api('POST', `/api/gen/series/${encodeURIComponent(SID)}/chapter/${ch}/regenerate`); trackJobs(); }
+  catch (e) { alert('Failed: ' + e.message); btn.disabled = false; }
+}
+
+// ---------------- jobs polling ----------------
+let pollTimer = null, lastActive = false;
+async function pollJobs() {
+  let jobs = [];
+  try { ({ jobs = [] } = await api('GET', '/api/gen/jobs')); } catch (_) { return; }
+  const mine = jobs.filter(j => j.series_id === SID);
+  if (!mine.length) { $('jobs').style.display = 'none'; }
+  else {
+    $('jobs').style.display = 'block';
+    $('jobsBody').innerHTML = mine.slice(0, 8).map(jobRow).join('');
+  }
+  const active = jobs.some(j => j.status === 'queued' || j.status === 'running');
+  if (!active && lastActive) refreshSeries();   // a run finished → refresh chapters
+  lastActive = active;
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(pollJobs, active ? 1500 : 5000);
+}
+function jobRow(j) {
+  const dur = j.finished && j.started ? `${Math.round(j.finished - j.started)}s`
+            : j.started ? `${Math.round(Date.now()/1000 - j.started)}s` : '';
+  const tail = (j.log || '').slice(-1200);
+  return `<div class="job"><div class="top">
+      <span>${j.status==='running'?'<span class="spin"></span> ':''}${esc(j.label || j.kind)}</span>
+      <span class="badge ${j.status}">${j.status}</span></div>
+    <div class="muted" style="font-size:11px;margin-top:3px">${dur}${j.error?(' · '+esc(j.error)):''}</div>
+    ${tail ? `<details${j.status==='error'?' open':''}><summary style="font-size:11px;color:var(--teal);cursor:pointer">log</summary><pre>${esc(tail)}</pre></details>` : ''}
+  </div>`;
+}
+function trackJobs() { lastActive = true; pollJobs(); }
+
+// ---------------- wire up ----------------
+$('bdBtn').addEventListener('click', braindump);
+$('fwBtn').addEventListener('click', buildFramework);
+$('hideJobs').addEventListener('click', () => $('jobs').style.display = 'none');
+
+if (location.protocol === 'file:') {
+  $('fileWarn').style.display = 'block';
+  $('bdBtn').disabled = true;
+} else {
+  loadSeriesOptions();
+  pollJobs();
+}
+</script>
+</body>
+</html>
