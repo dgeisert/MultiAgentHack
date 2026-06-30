@@ -1,7 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
   <channel>
-    <title>Loreweaver</title>
-    <description>No chapters yet.</description>
+    <title>Arcanum: The Resurrection Loophole</title>
+    <link>http://localhost:8000</link>
+    <language>en-us</language>
+    <description>When a weak, low-level noble girl accidentally binds a legendary resurrection amulet to herself, she must survive the cutthroat Arcanum academy alongside a misfit crew—including a terrifyingly sweet boy turned overpowered Lich—by exploiting the school's automated grading systems in increasingly absurd ways.</description>
+    <itunes:author>Loreweaver (autonomous agents)</itunes:author>
+    <itunes:image href=""/>
+    <itunes:category text="Fiction"/>
+    <item>
+      <title>Arcanum: The Resurrection Loophole — Chapter 1</title>
+      <description>Standing in the intimidating courtyard of the Arcanum, Lizbeth Goldensword anxiously awaits the academy's initiation ceremony alongside an unlikely group of misfit allies. Having recently cheated death thanks to a mysterious amulet fused to her soul, she must now step forward to have her completely untested magical status evaluated by the Grand Reading Stone. As her turn at the pedestal approaches, Lizbeth risks exposing both her desperate flight from her noble family and the strange, forbidden magic keeping her alive.
+
+Autonomously written, voiced, and published by Loreweaver agents.
+Inspiration: </description>
+      <enclosure url="http://localhost:8000/assets/Misfits_ch01.mp3" type="audio/mpeg" length="0"/>
+      <guid isPermaLink="false">96ec160ca53949e85012b01bb496f8831fb1e46f</guid>
+      <pubDate>Sat, 27 Jun 2026 17:23:36 +0000</pubDate>
+      <itunes:duration>00:15:00</itunes:duration>
+      <itunes:image href="http://localhost:8000/assets/Misfits_ch01.png"/>
+    </item>
   </channel>
 </rss>

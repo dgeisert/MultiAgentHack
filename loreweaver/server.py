@@ -54,12 +54,20 @@ def _world_payload(series: str) -> dict:
     continuity.init()
     s = continuity.load_series(series)
     bible = (s or {}).get("world_bible") or {}
+    # Surface the full character sheet (RPG stat block + sheet fields) so the
+    # main player can show the same sheet the Studio edits. ensure_character_stats
+    # fills sane defaults for characters authored before stats existed.
+    characters = []
+    for c in bible.get("characters", []):
+        c = dict(c)
+        files.ensure_character_stats(c)
+        characters.append(c)
     return {
         "series": series,
         "title": bible.get("title", (s or {}).get("title", series)),
         "lore": {k: bible.get(k) for k in _LORE_FIELDS if bible.get(k)},
         "factions": bible.get("factions", []),
-        "characters": bible.get("characters", []),
+        "characters": characters,
     }
 
 
@@ -96,6 +104,67 @@ def _save_world(series: str, payload: dict) -> dict:
     if continuity.list_episodes(series):
         _rebuild_feed(series)
     return _world_payload(series)
+
+
+def _lore_path(series_id: str) -> Path:
+    """Path to a series' on-disk world bible (the lore master), without
+    creating any directories (unlike files.lore_dir)."""
+    return settings.DATA_DIR / files.slug(series_id) / "lore" / "world_bible.json"
+
+
+def _reload_lore_from_disk(series_id: str) -> dict:
+    """Repopulate the continuity DB for ONE series from its on-disk lore, then
+    rebuild that series' vector index from the same file.
+
+    The world bible at data/<series>/lore/world_bible.json is treated as the
+    source of truth: its title / lore fields / factions / characters overwrite
+    the DB row, while volatile progress fields already in the DB (chapter
+    outline, voice map, rolling summary, chapter cursor, cover) are preserved.
+    """
+    from . import rag  # local import: pulls in embeddings, keep server start cheap
+
+    path = _lore_path(series_id)
+    if not path.exists():
+        return {"series_id": series_id, "ok": False,
+                "error": f"no world_bible.json on disk for '{series_id}'"}
+    try:
+        bible = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return {"series_id": series_id, "ok": False,
+                "error": f"could not read world_bible.json: {e}"}
+
+    existing = continuity.load_series(series_id) or {}
+    continuity.save_series(
+        series_id,
+        title=bible.get("title") or existing.get("title") or series_id,
+        world_bible=bible,
+        chapter_outline=existing.get("chapter_outline") or [],
+        voice_map=existing.get("voice_map") or {},
+        rolling_summary=existing.get("rolling_summary") or "",
+        current_chapter=existing.get("current_chapter") or 0,
+        cover_url=existing.get("cover_url") or "",
+    )
+    indexed = rag.reindex_from_disk(series_id)
+    return {
+        "series_id": series_id,
+        "ok": True,
+        "title": bible.get("title") or series_id,
+        "characters": len(bible.get("characters") or []),
+        "lore_fields": [k for k in _LORE_FIELDS if bible.get(k)],
+        "indexed_chunks": indexed,
+    }
+
+
+def _reload_all_lore() -> dict:
+    """Repopulate every series that has a world_bible.json on disk."""
+    continuity.init()
+    results = [
+        _reload_lore_from_disk(sid)
+        for sid in _known_series()
+        if _lore_path(sid).exists()
+    ]
+    return {"reloaded": results,
+            "count": sum(1 for r in results if r.get("ok"))}
 
 
 # ===========================================================================
@@ -311,6 +380,75 @@ def _chapter_detail(series_id: str, chapter: int) -> dict:
     }
 
 
+def _studio_workspace_payload(series_id: str, chapter: int) -> dict:
+    """Everything the Studio chapter wizard needs: the saved workspace plus the
+    roster, voice catalog, the chapter beat, and previous-chapter context."""
+    from .store import workspace
+    from .tools import elevenlabs
+
+    s = continuity.load_series(series_id) or {}
+    bible = s.get("world_bible") or {}
+    voice_map = s.get("voice_map") or {}
+    outline = s.get("chapter_outline") or []
+    beat = next((c for c in outline if c.get("index") == chapter), None) or {
+        "index": chapter, "title": f"Chapter {chapter}"}
+
+    catalog = elevenlabs.list_voices()
+    cat_by_id = {v["voice_id"]: v for v in catalog}
+    roster = []
+    for c in bible.get("characters", []):
+        if not c.get("name"):
+            continue
+        vid = c.get("voice_id") or voice_map.get(c["name"], "")
+        files.ensure_character_stats(c)
+        roster.append({
+            "name": c["name"], "role": c.get("role", ""),
+            "voice_id": vid,
+            "voice_name": c.get("voice_name") or (cat_by_id.get(vid, {}).get("name", "")),
+            "level": c["level"],
+            "char_class": c["char_class"],
+            "stats": dict(c["stats"]),
+            "skills": list(c["skills"]),
+            # full editable sheet fields for the Studio's sheet editor
+            "personality": c.get("personality", ""),
+            "speaking_style": c.get("speaking_style", ""),
+            "physical_description": c.get("physical_description", ""),
+            "backstory": c.get("backstory", ""),
+            "quirks": c.get("quirks", ""),
+            "voice_brief": c.get("voice_brief", ""),
+        })
+
+    # Backfill unified per-chapter character records (freezing base descriptions
+    # into chapter-specific data) for any character that lacks one, preserving
+    # existing states. No-op once records exist; makes no LLM calls.
+    from . import studio_flow
+    with contextlib.suppress(Exception):
+        studio_flow.ensure_chapter_records(series_id, chapter)
+
+    ws = workspace.load(series_id, chapter)
+    # annotate each script line with whether its clip currently exists on disk
+    for ln in ws.get("script") or []:
+        clip = ln.get("clip") or ""
+        ln["has_clip"] = bool(clip and Path(clip).exists())
+
+    return {
+        "series_id": series_id,
+        "chapter": chapter,
+        "beat": beat,
+        "title": beat.get("title") or f"Chapter {chapter}",
+        "roster": roster,
+        "voices": [{"voice_id": v["voice_id"], "name": v.get("name", ""),
+                    "gender": v.get("gender", ""), "accent": v.get("accent", "")}
+                   for v in catalog],
+        "has_prev_text": bool(files.latest_chapter_text(series_id, chapter - 1)) if chapter > 1 else False,
+        "prev_summary": workspace.previous_chapter_summary(series_id, chapter),
+        "workspace": ws,
+    }
+
+
+_CLIP_CT = {".mp3": "audio/mpeg", ".wav": "audio/wav", ".m4a": "audio/mp4"}
+
+
 class Handler(SimpleHTTPRequestHandler):
     # Serve files out of the web player dir regardless of process cwd.
     def __init__(self, *args, **kwargs):
@@ -333,14 +471,54 @@ class Handler(SimpleHTTPRequestHandler):
         from urllib.parse import urlparse, parse_qs
         return parse_qs(urlparse(self.path).query)
 
+    def _serve_clip(self, series_id: str, chapter: int, idx: int):
+        """Stream a single rendered TTS clip for the review step."""
+        from .store import workspace
+        ws = workspace.load(series_id, chapter)
+        script = ws.get("script") or []
+        if idx < 0 or idx >= len(script):
+            return self._send_json({"error": "line not found"}, 404)
+        clip = script[idx].get("clip") or ""
+        p = Path(clip)
+        if not clip or not p.exists():
+            alt = Path(clip.rsplit(".", 1)[0] + ".wav") if clip else None
+            if alt and alt.exists():
+                p = alt
+            else:
+                return self._send_json({"error": "clip not rendered"}, 404)
+        data = p.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", _CLIP_CT.get(p.suffix.lower(), "application/octet-stream"))
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
+
     # ---- routes -----------------------------------------------------------
     def do_GET(self):
         path = self.path.split("?", 1)[0]
         if path == "/api/series":
-            return self._send_json({"series": _known_series()})
+            # Source from the continuity store (same as the manage page) so the
+            # dropdowns never miss a series that exists in the DB but has no
+            # folder on disk yet. Merge with disk folders as a fallback.
+            continuity.init()
+            ids = [s["series_id"] for s in continuity.list_series()]
+            for sid in _known_series():
+                if sid not in ids:
+                    ids.append(sid)
+            return self._send_json({"series": sorted(ids)})
         if path == "/api/world":
             series = (self._query().get("series") or ["tidebound"])[0]
             return self._send_json(_world_payload(series))
+        if path == "/api/prompts":
+            from . import prompt_config
+            return self._send_json({
+                "writing": {
+                    "sections": prompt_config.get_sections(),
+                    "placeholders": prompt_config.placeholders(),
+                }
+            })
 
         # ---- generation management (read) ----
         if path == "/api/gen/series":
@@ -352,6 +530,15 @@ class Handler(SimpleHTTPRequestHandler):
         if m:
             job = RUNNER.get(m.group(1))
             return self._send_json(job or {"error": "not found"}, 200 if job else 404)
+        # ---- studio per-chapter workspace (read + clip streaming) ----
+        m = re.fullmatch(r"/api/gen/series/([^/]+)/chapter/(\d+)/workspace", path)
+        if m:
+            continuity.init()
+            return self._send_json(_studio_workspace_payload(m.group(1), int(m.group(2))))
+        m = re.fullmatch(r"/api/gen/series/([^/]+)/chapter/(\d+)/clip/(\d+)", path)
+        if m:
+            return self._serve_clip(m.group(1), int(m.group(2)), int(m.group(3)))
+
         m = re.fullmatch(r"/api/gen/series/([^/]+)/chapter/(\d+)", path)
         if m:
             continuity.init()
@@ -383,6 +570,26 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001
                 return self._send_json({"error": f"{type(e).__name__}: {e}"}, status=500)
 
+        if path == "/api/prompts":
+            from . import prompt_config
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                data = json.loads(self.rfile.read(length) or b"{}")
+                # Accept {"sections": {key: text}} or {"writing": {key: text}}.
+                updates = data.get("sections") or data.get("writing") or {}
+                if not isinstance(updates, dict):
+                    return self._send_json({"error": "sections must be an object"}, 400)
+                sections = prompt_config.save_sections(updates)
+                return self._send_json({
+                    "ok": True,
+                    "writing": {
+                        "sections": sections,
+                        "placeholders": prompt_config.placeholders(),
+                    },
+                })
+            except Exception as e:  # noqa: BLE001
+                return self._send_json({"error": f"{type(e).__name__}: {e}"}, status=500)
+
         if path != "/api/braindump":
             return self._send_json({"error": "not found"}, status=404)
         try:
@@ -407,6 +614,120 @@ class Handler(SimpleHTTPRequestHandler):
         except Exception as e:  # noqa: BLE001
             return self._send_json({"error": f"{type(e).__name__}: {e}"}, status=500)
 
+    # ---- studio per-chapter wizard: POST actions -------------------------
+    def _do_studio_post(self, path: str, body: dict):
+        """Handle the Studio's stepped chapter routes. Returns a response object
+        when the path matches a studio route, or None so the caller can fall
+        through to the legacy generation routes."""
+        base = r"/api/gen/series/([^/]+)/chapter/(\d+)"
+        from . import studio_flow
+
+        def job(kind, fn, sid, ch, label):
+            j = RUNNER.enqueue(kind, fn, series_id=sid, chapter=ch, label=label)
+            return self._send_json({"job": j}, 202)
+
+        def sync(fn):
+            try:
+                return self._send_json({"ok": True, "workspace": fn()})
+            except Exception as e:  # noqa: BLE001
+                return self._send_json({"error": f"{type(e).__name__}: {e}"}, 400)
+
+        # ---- synchronous saves / edits ----
+        m = re.fullmatch(base + r"/characters", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return sync(lambda: studio_flow.set_characters(sid, ch, body.get("selected") or []))
+        m = re.fullmatch(base + r"/states", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return sync(lambda: studio_flow.set_states(sid, ch, body.get("states") or {}))
+        m = re.fullmatch(base + r"/records", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return sync(lambda: studio_flow.set_character_records(
+                sid, ch, body.get("selected") or [], body.get("records") or {}))
+        m = re.fullmatch(base + r"/plot", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return sync(lambda: studio_flow.set_plot_points(sid, ch, body.get("plot_points") or []))
+        m = re.fullmatch(base + r"/notes", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return sync(lambda: studio_flow.set_special_notes(sid, ch, body.get("special_notes") or ""))
+        m = re.fullmatch(base + r"/draft", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return sync(lambda: studio_flow.set_draft(sid, ch, body.get("draft") or ""))
+        m = re.fullmatch(base + r"/voice", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return sync(lambda: studio_flow.set_voice(
+                sid, ch, body.get("character") or "", body.get("voice_id") or ""))
+        m = re.fullmatch(base + r"/line", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return sync(lambda: studio_flow.set_line_speaker(
+                sid, ch, int(body.get("idx", -1)), body.get("speaker") or ""))
+
+        # ---- background jobs (LLM / TTS / media) ----
+        m = re.fullmatch(base + r"/states/generate", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return job("states", lambda: studio_flow.generate_states(sid, ch), sid, ch,
+                       f"States · {sid} ch{ch}")
+        m = re.fullmatch(base + r"/plot/generate", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return job("plot", lambda: studio_flow.generate_plot_points(sid, ch), sid, ch,
+                       f"Plot points · {sid} ch{ch}")
+        m = re.fullmatch(base + r"/author", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return job("author", lambda: studio_flow.author_chapter(sid, ch), sid, ch,
+                       f"Author · {sid} ch{ch}")
+        m = re.fullmatch(base + r"/qa", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return job("qa", lambda: studio_flow.run_qa(sid, ch), sid, ch,
+                       f"QA · {sid} ch{ch}")
+        m = re.fullmatch(base + r"/cast", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return job("cast", lambda: studio_flow.cast_voices(sid, ch), sid, ch,
+                       f"Cast voices · {sid} ch{ch}")
+        m = re.fullmatch(base + r"/tts/(\d+)", path)
+        if m:
+            sid, ch, idx = m.group(1), int(m.group(2)), int(m.group(3))
+            return job("tts1", lambda: studio_flow.render_one(sid, ch, idx), sid, ch,
+                       f"Re-render line {idx} · {sid} ch{ch}")
+        m = re.fullmatch(base + r"/tts", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return job("tts", lambda: studio_flow.render_all(sid, ch), sid, ch,
+                       f"Render audio · {sid} ch{ch}")
+        m = re.fullmatch(base + r"/combine", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return job("combine", lambda: studio_flow.combine(sid, ch), sid, ch,
+                       f"Combine audio · {sid} ch{ch}")
+        m = re.fullmatch(base + r"/cover", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return job("cover", lambda: studio_flow.make_cover(sid, ch), sid, ch,
+                       f"Cover · {sid} ch{ch}")
+        m = re.fullmatch(base + r"/publish", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return job("publish", lambda: studio_flow.publish(sid, ch), sid, ch,
+                       f"Publish · {sid} ch{ch}")
+        m = re.fullmatch(base + r"/update-sheets", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return job("sheets", lambda: studio_flow.update_character_sheets(sid, ch), sid, ch,
+                       f"Update character sheets · {sid} ch{ch}")
+
+        return None
+
     # ---- generation management: POST actions -----------------------------
     def _do_gen_post(self, path: str):
         continuity.init()
@@ -415,6 +736,73 @@ class Handler(SimpleHTTPRequestHandler):
         if n:
             with contextlib.suppress(Exception):
                 body = json.loads(self.rfile.read(n) or b"{}")
+
+        # ---- studio per-chapter wizard actions ----
+        handled = self._do_studio_post(path, body)
+        if handled is not None:
+            return handled
+
+        # ---- add a new character to the series roster ----
+        m = re.fullmatch(r"/api/gen/series/([^/]+)/character/add", path)
+        if m:
+            from . import studio_flow
+            sid = m.group(1)
+            name = (body.get("name") or "").strip()
+            if not name:
+                return self._send_json({"error": "name is required"}, 400)
+            fields = body.get("fields") if isinstance(body.get("fields"), dict) else body
+            try:
+                c = studio_flow.add_character(sid, name, fields)
+            except ValueError as e:
+                return self._send_json({"error": str(e)}, 409)
+            except Exception as e:  # noqa: BLE001
+                return self._send_json({"error": f"{type(e).__name__}: {e}"}, 500)
+            return self._send_json({"ok": True, "character": c})
+
+        # ---- remove a character from the series roster ----
+        m = re.fullmatch(r"/api/gen/series/([^/]+)/character/remove", path)
+        if m:
+            from . import studio_flow
+            sid = m.group(1)
+            name = (body.get("name") or "").strip()
+            if not name:
+                return self._send_json({"error": "name is required"}, 400)
+            try:
+                result = studio_flow.remove_character(sid, name)
+            except ValueError as e:
+                return self._send_json({"error": str(e)}, 404)
+            except Exception as e:  # noqa: BLE001
+                return self._send_json({"error": f"{type(e).__name__}: {e}"}, 500)
+            return self._send_json({"ok": True, **result})
+
+        # ---- save edits to a character's base sheet (series-level) ----
+        m = re.fullmatch(r"/api/gen/series/([^/]+)/character", path)
+        if m:
+            from . import studio_flow
+            sid = m.group(1)
+            name = (body.get("name") or "").strip()
+            if not name:
+                return self._send_json({"error": "name is required"}, 400)
+            fields = body.get("fields") if isinstance(body.get("fields"), dict) else body
+            try:
+                c = studio_flow.set_character_sheet(sid, name, fields)
+            except ValueError as e:
+                return self._send_json({"error": str(e)}, 404)
+            except Exception as e:  # noqa: BLE001
+                return self._send_json({"error": f"{type(e).__name__}: {e}"}, 500)
+            return self._send_json({"ok": True, "character": c})
+
+        if path == "/api/gen/reload-lore":
+            # Rebuild the DB (+ vector index) from the lore on disk. With a
+            # "series" in the body, reload just that one; otherwise reload all.
+            sid = (body.get("series") or "").strip()
+            try:
+                if sid:
+                    res = _reload_lore_from_disk(sid)
+                    return self._send_json(res, 200 if res.get("ok") else 404)
+                return self._send_json(_reload_all_lore())
+            except Exception as e:  # noqa: BLE001
+                return self._send_json({"error": f"{type(e).__name__}: {e}"}, 500)
 
         if path == "/api/gen/series":
             sid = re.sub(r"[^A-Za-z0-9_-]+", "", (body.get("series_id") or "").strip())
@@ -449,6 +837,40 @@ class Handler(SimpleHTTPRequestHandler):
             job = RUNNER.enqueue("next", lambda: _run_next(sid), series_id=sid,
                                  label=f"Next chapter · {sid}")
             return self._send_json({"job": job}, 202)
+
+        m = re.fullmatch(r"/api/gen/series/([^/]+)/chapter/(\d+)/insert", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            s = continuity.load_series(sid)
+            if not s:
+                return self._send_json(
+                    {"error": "no world bible yet — run a braindump first"}, 400)
+            position = (body.get("position") or "after").strip().lower()
+            if position not in ("before", "after"):
+                return self._send_json(
+                    {"error": "position must be 'before' or 'after'"}, 400)
+            new_index = ch if position == "before" else ch + 1
+            # Inserting here would renumber an already-generated chapter — refuse
+            # so produced text/audio never falls out of sync with its number.
+            if new_index <= (s.get("current_chapter") or 0):
+                return self._send_json(
+                    {"error": f"can't insert {position} chapter {ch}: chapter "
+                              f"{new_index} is already generated. Only planned "
+                              f"chapters can be reordered."}, 409)
+            beat = {
+                "title": (body.get("title") or "").strip() or f"Chapter {new_index}",
+                "synopsis": (body.get("synopsis") or "").strip(),
+                "inserted": True,
+            }
+            try:
+                outline = continuity.insert_outline_beat(sid, new_index, beat)
+            except ValueError as e:
+                return self._send_json({"error": str(e)}, 404)
+            return self._send_json({
+                "series": sid,
+                "inserted_index": new_index,
+                "chapter_outline": outline,
+            })
 
         m = re.fullmatch(r"/api/gen/series/([^/]+)/chapter/(\d+)/regenerate", path)
         if m:
@@ -504,6 +926,7 @@ def serve(port: int = 8000) -> None:
     with ThreadingTCPServer(("", port), Handler) as httpd:
         mode = "MOCK (no keys)" if settings.mock_mode() else "LIVE"
         print(f"Loreweaver [{mode}]")
-        print(f"  player + braindump : http://localhost:{port}/")
+        print(f"  player             : http://localhost:{port}/")
+        print(f"  studio (braindump) : http://localhost:{port}/studio.html")
         print(f"  manage generations : http://localhost:{port}/manage.html")
         httpd.serve_forever()

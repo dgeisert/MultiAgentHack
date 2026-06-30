@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Loreweaver — Settings</title>
+<style>
+  :root { --bg:#0a1014; --panel:#10212a; --teal:#2dd4bf; --salt:#e7f6f2; --muted:#7fa6a0;
+          --line:#1c3a44; --danger:#ff7a7a; --gold:#e8c16a; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,Segoe UI,Roboto,sans-serif;
+         background:radial-gradient(1200px 600px at 70% -10%,#13313a,#0a1014); color:var(--salt); }
+  a { color:var(--teal); text-decoration:none; }
+  header { padding:36px 24px 8px; max-width:1040px; margin:0 auto; }
+  h1 { margin:0; font-size:30px; letter-spacing:.5px; }
+  .sub { color:var(--muted); margin-top:6px; font-size:14px; line-height:1.5; }
+  main { max-width:1040px; margin:0 auto; padding:8px 24px 90px; }
+
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px;
+           padding:18px 20px; margin:16px 0; }
+  .panel h2 { margin:0 0 4px; font-size:18px; }
+  .panel .hint { color:var(--muted); font-size:13px; margin:0 0 12px; line-height:1.5; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  input, select, textarea { background:#0a1014; color:var(--salt); border:1px solid var(--line);
+          border-radius:8px; padding:10px 12px; font-size:14px; font-family:inherit; }
+  textarea { width:100%; min-height:120px; resize:vertical; line-height:1.6;
+             font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; }
+  button { font-family:inherit; font-size:13px; background:var(--teal); color:#06231f;
+           border:0; border-radius:8px; padding:10px 15px; font-weight:600; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--teal); border:1px solid var(--teal); }
+  button.small { padding:6px 11px; font-size:12px; }
+  button:disabled { opacity:.45; cursor:default; }
+  .status { font-size:13px; color:var(--muted); min-height:18px; margin-top:8px; }
+  .status.err { color:var(--danger); }
+  .status.ok { color:var(--teal); }
+  .muted { color:var(--muted); font-size:13px; }
+
+  .sec { border:1px solid var(--line); border-radius:12px; margin:14px 0; background:#0c1c24; }
+  .sec .sh { padding:12px 14px 4px; }
+  .sec .sh h3 { margin:0; font-size:15px; }
+  .sec .sh h3 .tag { font-size:10px; color:var(--gold); border:1px solid rgba(232,193,106,.5);
+                     border-radius:999px; padding:1px 8px; margin-left:8px; vertical-align:middle;
+                     text-transform:uppercase; letter-spacing:.4px; }
+  .sec .sh .d { color:var(--muted); font-size:12.5px; margin:5px 0 0; line-height:1.5; }
+  .sec .sb { padding:6px 14px 14px; }
+  .sec .row { margin-top:8px; }
+
+  /* assembled-structure preview */
+  .tpl { white-space:pre-wrap; word-break:break-word; line-height:1.7; font-size:13px;
+         font-family:ui-monospace,SFMono-Regular,Menlo,monospace; background:#06141a;
+         border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .ph { color:#06231f; background:var(--gold); border-radius:5px; padding:1px 5px;
+        font-weight:700; cursor:help; }
+  .legend { margin-top:14px; }
+  .legend .li { display:grid; grid-template-columns:200px 1fr; gap:12px; padding:7px 0;
+                border-top:1px solid rgba(28,58,68,.6); font-size:13px; align-items:baseline; }
+  .legend .li:first-child { border-top:0; }
+  .legend .tok { color:var(--gold); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🜂 Loreweaver Settings</h1>
+  <div class="sub">Edit the text sections of the main writing prompt. Curly-bracket tokens like
+    <span class="ph">{plot_block}</span> are filled in at generation time from elsewhere —
+    see the legend at the bottom. <a href="studio.html">studio ›</a> · <a href="index.html">player ›</a></div>
+</header>
+<main>
+  <section class="panel">
+    <h2>Writing prompt sections</h2>
+    <p class="hint">Each section below is part of the chapter-writing prompt, in order. Edit the
+      text and save; only the sections you changed are written. Set a section back to its default
+      to stop overriding it. Tokens in <code>{curly brackets}</code> are substituted with live
+      data and should be kept where you want that data to appear.</p>
+    <div id="sections"><div class="muted">Loading…</div></div>
+    <div class="row" style="margin-top:14px">
+      <button onclick="saveAll()">Save all changes</button>
+      <span class="status" id="st-all"></span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>How the prompt is constructed</h2>
+    <p class="hint">The full prompt, assembled in order. Highlighted tokens are loaded in from
+      elsewhere — hover any token for what it contains.</p>
+    <div class="tpl" id="tpl"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let SECTIONS = [];
+let PLACEHOLDERS = {};
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// wrap {token} occurrences in a highlighted span (with a tooltip = description)
+function highlight(text) {
+  return esc(text).replace(/\{(\w+)\}/g, (m, name) => {
+    const desc = PLACEHOLDERS[name];
+    if (!desc) return m;            // unknown token: leave as plain text
+    return `<span class="ph" title="${esc(desc)}">{${esc(name)}}</span>`;
+  });
+}
+
+async function api(method, path, body) {
+  const opt = { method, headers: {} };
+  if (body !== undefined) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  let data = {}; try { data = await r.json(); } catch (_) {}
+  if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+  return data;
+}
+
+function renderSections() {
+  $('sections').innerHTML = SECTIONS.map(s => `
+    <div class="sec" data-key="${esc(s.key)}">
+      <div class="sh">
+        <h3>${esc(s.label)}${s.customized ? '<span class="tag">customized</span>' : ''}</h3>
+        <p class="d">${esc(s.description)}</p>
+      </div>
+      <div class="sb">
+        <textarea id="ta-${esc(s.key)}" oninput="renderPreview()">${esc(s.text)}</textarea>
+        <div class="row">
+          <button class="ghost small" onclick="saveOne('${esc(s.key)}')">Save section</button>
+          <button class="ghost small" onclick="resetOne('${esc(s.key)}')">Reset to default</button>
+          <span class="status" id="st-${esc(s.key)}"></span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// the live, edited text for a section (falls back to its stored text)
+function textFor(key) {
+  const ta = $(`ta-${key}`);
+  if (ta) return ta.value;
+  const s = SECTIONS.find(x => x.key === key);
+  return s ? s.text : '';
+}
+
+function renderPreview() {
+  const tpl = SECTIONS.map(s => textFor(s.key)).join('\n\n');
+  $('tpl').innerHTML = highlight(tpl);
+  $('legend').innerHTML = Object.entries(PLACEHOLDERS).map(([tok, desc]) =>
+    `<div class="li"><span class="tok">{${esc(tok)}}</span><span>${esc(desc)}</span></div>`).join('');
+}
+
+function load(data) {
+  SECTIONS = (data.writing && data.writing.sections) || [];
+  PLACEHOLDERS = (data.writing && data.writing.placeholders) || {};
+  renderSections();
+  renderPreview();
+}
+
+async function refresh() {
+  try { load(await api('GET', '/api/prompts')); }
+  catch (e) { $('sections').innerHTML = `<div class="status err">${esc(e.message)}</div>`; }
+}
+
+async function post(updates, statusId, okMsg) {
+  const st = statusId ? $(statusId) : null;
+  if (st) { st.className = 'status'; st.textContent = 'Saving…'; }
+  try {
+    const data = await api('POST', '/api/prompts', { sections: updates });
+    load(data);
+    const after = statusId ? $(statusId) : null;
+    if (after) { after.className = 'status ok'; after.textContent = okMsg || 'Saved.'; }
+  } catch (e) {
+    const after = statusId ? $(statusId) : null;
+    if (after) { after.className = 'status err'; after.textContent = e.message; }
+  }
+}
+
+function saveOne(key) { post({ [key]: textFor(key) }, `st-${key}`, 'Section saved.'); }
+
+function resetOne(key) {
+  const s = SECTIONS.find(x => x.key === key);
+  if (!s) return;
+  const ta = $(`ta-${key}`);
+  if (ta) ta.value = s.default;     // server clears the override when text == default
+  post({ [key]: s.default }, `st-${key}`, 'Reset to default.');
+}
+
+function saveAll() {
+  const updates = {};
+  SECTIONS.forEach(s => { updates[s.key] = textFor(s.key); });
+  post(updates, 'st-all', 'All changes saved.');
+}
+
+refresh();
+</script>
+</body>
+</html>

@@ -39,10 +39,20 @@ def _live_text(prompt: str, json_mode: bool, system: str | None) -> str:
         system_instruction=system,
         response_mime_type="application/json" if json_mode else None,
     )
-    resp = client.models.generate_content(
+    # STREAM the response. gemini-3.x are *thinking* models: on a large
+    # generation they spend many seconds reasoning before emitting the first
+    # token. A non-streaming generate_content holds one idle connection open
+    # for that entire wait, and the server/intermediary closes it before the
+    # first byte -> "Server disconnected without sending a response". Streaming
+    # keeps bytes flowing so the connection stays alive; we reassemble the text
+    # chunks into a single string (identical return contract to before).
+    parts: list[str] = []
+    for chunk in client.models.generate_content_stream(
         model=settings.GEMINI_TEXT_MODEL, contents=prompt, config=config
-    )
-    return resp.text
+    ):
+        if chunk.text:
+            parts.append(chunk.text)
+    return "".join(parts)
 
 
 def generate_text(prompt: str, *, json_mode: bool = False, system: str | None = None) -> str:
@@ -153,12 +163,36 @@ def _mock_attribution(prompt: str) -> dict:
     return {"speaker": speaker, "emotion": "neutral"}
 
 
+def _mock_progression(prompt: str) -> dict:
+    """Mock a post-chapter RPG progression update for one character.
+
+    Deterministic (seeded by the prompt, which includes the character name) so
+    offline demos produce stable, plausible-looking growth.
+    """
+    seed = _seeded(prompt)
+    abilities = ["strength", "wisdom", "intelligence", "dexterity",
+                 "constitution", "charisma", "luck"]
+    bumped = abilities[seed % len(abilities)]
+    skills_pool = ["Tide-Reading", "Salt-Diving", "Memory-Sifting", "Cold Endurance",
+                   "Lantern Signaling", "Undertow Lore", "Breath-Holding"]
+    gained = skills_pool[seed % len(skills_pool)]
+    return {
+        "level_delta": 1,
+        "new_class": None,
+        "stat_deltas": {bumped: 1},
+        "skills_gained": [gained],
+        "summary": f"Grew through the chapter's trials (+1 {bumped.title()}, learned {gained}).",
+    }
+
+
 def _mock_text(prompt: str, json_mode: bool) -> str:
     p = prompt.lower()
     # Intent routing is PRIORITY-ORDERED: several prompts legitimately contain
     # overlapping words (the bible prompt mentions "concept"; the QA and outline
     # prompts embed the world bible). Check the most specific intent first.
     if json_mode:
+        if "rpg progression update" in p:  # post-chapter character-sheet update
+            return _json.dumps(_mock_progression(prompt))
         if "brain-dump" in p:  # most specific: the braindumper intent
             return _json.dumps(_MOCK_BRAINDUMP)
         if "continuity editor" in p or "verdict" in p:

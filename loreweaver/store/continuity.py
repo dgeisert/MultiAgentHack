@@ -174,6 +174,38 @@ def set_current_chapter(series_id: str, chapter: int) -> None:
         )
 
 
+def insert_outline_beat(series_id: str, new_index: int, beat: dict) -> list[dict]:
+    """Slot a new planned beat into the chapter outline at `new_index`.
+
+    Every existing beat whose index is >= new_index is bumped up by one so the
+    plan stays contiguous, then `beat` is inserted at new_index. Returns the
+    rewritten outline (sorted by index). Only touches the outline (the plan) —
+    callers must ensure new_index lies past any already-generated chapter so we
+    never renumber produced episodes or their files.
+    """
+    with _conn() as con:
+        row = con.execute(
+            "SELECT chapter_outline FROM series WHERE series_id=?", (series_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"unknown series: {series_id}")
+        outline = json.loads(row["chapter_outline"] or "[]")
+
+        for b in outline:
+            if int(b.get("index", 0)) >= new_index:
+                b["index"] = int(b["index"]) + 1
+
+        new_beat = {**beat, "index": new_index}
+        outline.append(new_beat)
+        outline.sort(key=lambda b: int(b.get("index", 0)))
+
+        con.execute(
+            "UPDATE series SET chapter_outline=? WHERE series_id=?",
+            (json.dumps(outline), series_id),
+        )
+    return outline
+
+
 def add_episode(series_id: str, episode: dict) -> None:
     with _conn() as con:
         con.execute(

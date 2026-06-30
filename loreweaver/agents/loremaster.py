@@ -26,9 +26,15 @@ def run(state: SeriesState) -> dict:
         "title, premise, tone, geography, magic_system (with hard rules and costs), "
         "factions (array of {name, goal}), central_conflict, visual_identity "
         "(palette + motifs), and characters. Each character is an object with: name, role, "
-        "personality, physical_description, backstory, quirks, speaking_style, and voice_brief "
-        "(age, gender, timbre, accent for casting). Always include a 'Narrator' character. "
-        "Make every character vivid and distinct.\n\n"
+        "personality, physical_description, backstory, quirks, speaking_style, voice_brief "
+        "(age, gender, timbre, accent for casting), and an RPG stat block: level (integer, "
+        "start most characters at 1; seasoned/powerful figures may be higher), char_class "
+        "(a short fantasy class fitting their role, e.g. 'Rogue', 'Sap-Mage', 'Warden'), "
+        "stats (an object with integer scores 3-18 for strength, wisdom, intelligence, "
+        "dexterity, constitution, charisma, luck — reflect the character's nature), and "
+        "skills (array of 2-5 short skill names). The Narrator may use default/neutral "
+        "stats. Always include a 'Narrator' character. Make every character vivid and "
+        "distinct.\n\n"
         f"CONCEPT:\n{json.dumps(concept)}"
     )
     bible = gemini.generate_json(bible_prompt)
@@ -47,6 +53,7 @@ def run(state: SeriesState) -> dict:
     # Persist lore + a character sheet per character.
     for ch in bible.get("characters", []):
         ch.setdefault("first_seen_chapter", 1)
+        files.ensure_character_stats(ch)  # normalize/default the RPG stat block
         files.save_character_sheet(story, ch)
     files.save_lore(story, bible)
 

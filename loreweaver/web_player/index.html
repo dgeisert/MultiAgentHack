@@ -72,6 +72,17 @@
   #saveStatus { font-size:12px; min-height:16px; transition:opacity .2s; }
   #saveStatus.err { color:#ff8a8a; }
   #saveStatus.ok { color:var(--teal); }
+
+  /* ---- character sheet block ---- */
+  .sheet-meta { font-size:12px; color:var(--salt); margin:8px 0 6px; }
+  .sheet-meta .lvl { color:var(--teal); font-weight:600; }
+  .statblock { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin:8px 0; }
+  .stat { background:#0a1014; border:1px solid #1c3a44; border-radius:7px; padding:5px 2px;
+          text-align:center; }
+  .stat .lab { display:block; font-size:9px; color:var(--muted); letter-spacing:.3px; }
+  .stat .val { display:block; font-size:14px; font-weight:600; }
+  .skills { font-size:12px; color:var(--muted); margin-top:6px; }
+  .skills .k { color:var(--salt); font-weight:600; }
 </style>
 </head>
 <body>
@@ -80,7 +91,9 @@
   <div class="sub" id="premise" data-edit="lore" data-key="premise"
        data-placeholder="One-line premise…">An autonomously written, voiced, and published fantasy audiobook.</div>
   <span class="tag">● LIVE · agents publishing chapter by chapter</span>
+  <span style="margin-left:12px"><a href="studio.html">🜂 Open Studio →</a></span>
   <span style="margin-left:12px"><a href="manage.html">⚙ Manage generations →</a></span>
+  <span style="margin-left:12px"><a href="settings.html">⚙ Prompt settings →</a></span>
   <div id="saveStatus" style="margin-top:8px"></div>
 </header>
 <main>
@@ -214,11 +227,32 @@ function charCard(c, badge, idx) {
   const name = editable ? ed(`data-edit="char" data-idx="${idx}" data-key="name"`, c.name, 'Name') : esc(c.name);
   const role = editable ? ed(`data-edit="char" data-idx="${idx}" data-key="role"`, c.role, 'role')
                         : (c.role ? esc(c.role) : '');
+
+  // ---- RPG stat block (read-only on the player; edit it in the Studio) ----
+  const ABIL = ['strength','wisdom','intelligence','dexterity','constitution','charisma','luck'];
+  const stats = c.stats || {};
+  const hasStats = ABIL.some(k => stats[k] != null);
+  let meta = '';
+  if (c.level != null || c.char_class) {
+    meta = `<div class="sheet-meta"><span class="lvl">Lvl ${c.level ?? 1}</span>` +
+      (c.char_class ? ` · ${esc(c.char_class)}` : '') + `</div>`;
+  }
+  const statblock = hasStats
+    ? `<div class="statblock">` + ABIL.map(k =>
+        `<span class="stat"><span class="lab">${k.slice(0,3).toUpperCase()}</span>` +
+        `<span class="val">${esc(stats[k] ?? '—')}</span></span>`).join('') + `</div>`
+    : '';
+  const skills = (c.skills && c.skills.length)
+    ? `<div class="skills"><span class="k">Skills:</span> ${esc(c.skills.join(', '))}</div>` : '';
+
   return `<div class="card"><h4>${name}${b}</h4>` +
     ((editable || c.role) ? `<div class="role">${role}</div>` : '') +
+    meta + statblock + skills +
     line('Personality', 'personality', c.personality) +
+    line('Speaks', 'speaking_style', c.speaking_style) +
     line('Looks', 'physical_description', c.physical_description) +
     line('Backstory', 'backstory', c.backstory) +
+    line('Quirks', 'quirks', c.quirks) +
     line('Voice', 'voice_brief', c.voice_brief) +
     `</div>`;
 }

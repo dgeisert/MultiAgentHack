@@ -41,7 +41,11 @@ def _extract(text: str, bible: dict) -> dict:
         "the current bible.\n"
         '  "characters": array of character objects, each with: name, role, '
         "personality, physical_description, backstory, quirks, speaking_style, "
-        "and voice_brief (age, gender, timbre, accent for casting). Include BOTH "
+        "voice_brief (age, gender, timbre, accent for casting), and an RPG stat "
+        "block: level (integer, start at 1 unless the dump implies a veteran), "
+        "char_class (a short fantasy class fitting the role), stats (integer 3-18 "
+        "for strength, wisdom, intelligence, dexterity, constitution, charisma, "
+        "luck), and skills (array of 2-5 short skill names). Include BOTH "
         "brand-new characters and meaningful updates to known ones. Invent vivid, "
         "specific detail to fill gaps the writer left, but never contradict the "
         "existing bible.\n\n"

@@ -28,8 +28,11 @@ _FEMALE = {"woman", "female", "feminine", "she", "girl", "alto", "soprano", "mat
 _OLD = {"old", "elder", "elderly", "aged", "ancient", "weathered", "grizzled", "middle"}
 _YOUNG = {"young", "youth", "youthful", "boyish", "girlish", "teen", "teenage", "child"}
 
-# The narrator is always cast with this voice (by catalog name) when available.
+# The narrator is always cast with this voice. We match by catalog name, but
+# fall back to the canonical voice id so the narrator is Jessica even if a live
+# catalog fetch returns a list without an exact "Jessica" entry.
 NARRATOR_VOICE_NAME = "Jessica"
+NARRATOR_VOICE_ID = "cgSgspJ2msm6clMCkdW9"
 
 
 def _tokens(text: str) -> set[str]:
@@ -74,11 +77,11 @@ def _assign_unique_voices(speakers, characters, voice_map, catalog) -> None:
         if want_narrator:
             pin = next((v for v in catalog
                         if v.get("name", "").lower() == NARRATOR_VOICE_NAME.lower()), None)
-            if pin:
-                voice_map[spk] = pin["voice_id"]
-                used.add(pin["voice_id"])
-                log("casting", f"cast {spk} -> {pin['name']} (narrator, pinned)")
-                continue
+            voice_id = pin["voice_id"] if pin else NARRATOR_VOICE_ID
+            voice_map[spk] = voice_id
+            used.add(voice_id)
+            log("casting", f"cast {spk} -> {NARRATOR_VOICE_NAME} (narrator, pinned)")
+            continue
 
         free = [v for v in catalog if v["voice_id"] not in used]
         pool = free or catalog  # only reuse once the catalog is exhausted

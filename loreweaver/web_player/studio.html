@@ -62,20 +62,100 @@
   .state.done { background:rgba(80,200,120,.2); color:#7be0a3; }
   .state.busy { background:rgba(45,212,191,.2); color:var(--teal); }
 
-  /* tabs */
-  .tabbody { border-top:1px solid var(--line); padding:0 14px 14px; }
-  .tabs { display:flex; gap:6px; margin:12px 0; }
-  .tab { font-size:12px; color:var(--muted); background:transparent; border:1px solid var(--line);
-         border-radius:8px; padding:6px 14px; cursor:pointer; }
-  .tab.on { color:#06231f; background:var(--teal); border-color:var(--teal); font-weight:600; }
-  .tabpane { display:none; font-size:13.5px; line-height:1.7; color:var(--salt); }
-  .tabpane.on { display:block; }
-  .tabpane.txt { white-space:pre-wrap; max-height:420px; overflow:auto; background:#06141a;
-                 border:1px solid var(--line); border-radius:10px; padding:14px; color:#cfeae3; }
-  .tabpane.sum { color:#cfeae3; }
-  .tabpane audio { width:100%; margin-top:4px; }
   .muted { color:var(--muted); font-size:13px; }
   .wc { color:var(--muted); font-size:11px; margin-left:8px; }
+
+  /* insert chapter */
+  .ins { display:inline-flex; gap:4px; margin-left:2px; }
+  .ins-btn { background:transparent; color:var(--gold); border:1px solid rgba(232,193,106,.5);
+             border-radius:8px; padding:6px 9px; font-size:11px; font-weight:600; }
+  .ins-btn:disabled { opacity:.3; }
+  .insbox { border-top:1px solid var(--line); padding:14px; background:#0b1920; }
+  .insbox .ttl { font-size:12px; color:var(--gold); margin:0 0 8px; }
+  .insbox input, .insbox textarea { width:100%; margin-bottom:8px; }
+  .insbox textarea { min-height:70px; }
+  .insbox .row { gap:8px; }
+
+  /* ---- wizard ---- */
+  .wiz { border-top:1px solid var(--line); padding:6px 14px 16px; background:#0a191f; }
+  .wstep { border:1px solid var(--line); border-radius:11px; margin:12px 0; background:#0c1c24; }
+  .wstep > .wh { display:flex; align-items:center; gap:10px; padding:11px 14px; cursor:pointer;
+                 user-select:none; }
+  .wstep > .wh .num { width:22px; height:22px; flex:none; border-radius:50%; font-size:11px;
+                      font-weight:700; display:flex; align-items:center; justify-content:center;
+                      background:rgba(45,212,191,.15); color:var(--teal); }
+  .wstep > .wh .num.done { background:rgba(80,200,120,.22); color:#7be0a3; }
+  .wstep > .wh h3 { margin:0; font-size:14px; flex:1; }
+  .wstep > .wh .chev { color:var(--muted); font-size:12px; }
+  .wbody { padding:0 14px 14px; border-top:1px solid var(--line); }
+  .wbody .desc { color:var(--muted); font-size:12.5px; margin:10px 0 12px; line-height:1.5; }
+  .wstep.closed .wbody { display:none; }
+
+  .chargrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:8px; }
+  .charchk { display:flex; align-items:center; gap:9px; border:1px solid var(--line);
+             border-radius:9px; padding:9px 11px; background:#0a1014; }
+  .charchk input { min-width:0; width:16px; height:16px; }
+  .charchk .cn { font-size:13px; }
+  .charchk .cr { color:var(--muted); font-size:11px; }
+
+  .statecard { border:1px solid var(--line); border-radius:9px; padding:10px 12px; margin:8px 0;
+               background:#0a1014; }
+  .statecard .nm { font-size:13px; color:var(--teal); font-weight:600; margin-bottom:6px; }
+  .statecard textarea { min-height:78px; }
+  .statecard .charchk { border:0; padding:0; background:transparent; margin-bottom:8px; }
+  .statecard.off { opacity:.5; }
+  .statecard.off textarea { display:none; }
+
+  /* unified per-chapter character card (state + full sheet in one) */
+  .charcard { border:1px solid var(--line); border-radius:11px; padding:12px 13px; margin:10px 0;
+              background:#0a1014; }
+  .charcard.off { opacity:.5; }
+  .charcard.off .cc-body { display:none; }
+  .charcard .cc-head { margin-bottom:8px; display:flex; align-items:center;
+                       justify-content:space-between; gap:10px; }
+  .charcard .cc-head .charchk { border:0; padding:0; background:transparent; flex:1; }
+  .charcard .src { color:var(--gold); font-size:11px; margin-left:6px; }
+  .charcard .cc-rm { flex:0 0 auto; color:var(--danger); border-color:rgba(255,122,122,.4); }
+  .charcard .cc-rm:hover { border-color:var(--danger); }
+  .addchar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:12px 0 4px; }
+  .addchar input { flex:1 1 160px; min-width:0; }
+
+  .voicerow { display:flex; align-items:center; gap:10px; border:1px solid var(--line);
+              border-radius:9px; padding:8px 11px; margin:7px 0; background:#0a1014; }
+  .voicerow .vn { font-size:13px; flex:1; }
+  .voicerow select { min-width:200px; }
+
+  .linerow { display:grid; grid-template-columns:150px 1fr; gap:10px; align-items:start;
+             border:1px solid var(--line); border-radius:9px; padding:9px 11px; margin:7px 0;
+             background:#0a1014; }
+  .linerow select { width:100%; min-width:0; }
+  .linerow .lt { font-size:13px; line-height:1.55; }
+  .linerow .lt .em { color:var(--muted); font-size:11px; }
+  .linerow.narr { background:#0b171d; }
+  .reviewrow { display:grid; grid-template-columns:130px 1fr auto; gap:10px; align-items:center;
+               border:1px solid var(--line); border-radius:9px; padding:8px 11px; margin:7px 0;
+               background:#0a1014; }
+  .reviewrow .sp { font-size:12px; color:var(--teal); }
+  .reviewrow audio { width:100%; height:34px; }
+  .qabox { border:1px solid var(--line); border-radius:9px; padding:10px 12px; background:#0a1014; }
+  .qabox .verdict.pass { color:#7be0a3; font-weight:600; }
+  .qabox .verdict.revise { color:var(--gold); font-weight:600; }
+  .cover-prev { max-width:240px; border-radius:10px; border:1px solid var(--line); margin-top:8px; }
+
+  /* editable character sheet cards */
+  .sheetcard { border:1px solid var(--line); border-radius:9px; padding:12px 13px; margin:10px 0;
+               background:#0a1014; }
+  .sheetcard .sh-head { font-size:14px; margin-bottom:8px; }
+  .sh-grid { display:flex; gap:10px; flex-wrap:wrap; }
+  .shf { display:block; margin:7px 0; flex:1 1 160px; }
+  .shf.sm { flex:0 0 92px; }
+  .shf > span { display:block; font-size:11px; color:var(--muted); margin-bottom:3px; }
+  .shf input, .shf textarea { width:100%; min-width:0; }
+  .shf textarea { min-height:48px; }
+  .statgrid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin:8px 0; }
+  .statf { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .statf > span { font-size:10px; color:var(--muted); letter-spacing:.3px; }
+  .statf input { width:100%; min-width:0; text-align:center; padding:6px 4px; }
 
   /* jobs dock */
   #jobs { position:fixed; right:18px; bottom:18px; width:340px; max-width:calc(100vw - 36px);
@@ -84,6 +164,15 @@
   #jobs h4 { margin:0; padding:12px 14px; border-bottom:1px solid var(--line); font-size:13px;
              display:flex; justify-content:space-between; align-items:center; }
   #jobs .body { max-height:50vh; overflow:auto; padding:6px 0; }
+  /* minimized logs button */
+  #logsBtn { position:fixed; right:18px; bottom:18px; z-index:50; cursor:pointer;
+             display:flex; align-items:center; gap:8px; font-size:13px; color:var(--salt);
+             background:#0c1c24; border:1px solid var(--line); border-radius:999px;
+             padding:9px 15px; box-shadow:0 12px 40px rgba(0,0,0,.5); }
+  #logsBtn:hover { border-color:var(--teal); }
+  #logsBtn .dot { width:7px; height:7px; border-radius:50%; background:var(--muted); }
+  #logsBtn.active .dot { background:var(--teal); box-shadow:0 0 6px var(--teal); }
+  #logsBtn .count { font-size:11px; color:var(--muted); }
   .job { padding:9px 14px; border-bottom:1px solid rgba(28,58,68,.5); }
   .job:last-child { border-bottom:0; }
   .job .top { display:flex; justify-content:space-between; gap:8px; align-items:center; }
@@ -103,9 +192,9 @@
 <body>
 <header>
   <h1>🜂 Loreweaver Studio</h1>
-  <div class="sub">Braindump your story → generate a chapter framework → produce each chapter
-    and review its summary, text and audio. <a href="manage.html">manage ›</a> ·
-    <a href="index.html">player ›</a></div>
+  <div class="sub">Braindump your story → generate a chapter framework → build each chapter
+    step by step: characters, states, plot, prose, voices and audio. <a href="manage.html">manage ›</a> ·
+    <a href="settings.html">prompt settings ›</a> · <a href="index.html">player ›</a></div>
   <div class="steps">
     <span class="step on">1 · <b>Braindump</b></span>
     <span class="step">2 · Framework</span>
@@ -128,14 +217,16 @@
       Loreweaver mines them into canon lore + character sheets, merging into the series each time.</p>
     <div class="row" style="margin-bottom:12px">
       <div>
-        <label class="fld" for="sid">Series id</label>
-        <input id="sid" placeholder="e.g. tidebound" />
+        <label class="fld" for="sid">Series</label>
+        <input id="sid" list="series-list" placeholder="e.g. tidebound" style="min-width:200px" />
+        <datalist id="series-list"></datalist>
       </div>
       <div>
-        <label class="fld" for="existing">Or load existing</label>
-        <select id="existing"><option value="">— pick a series —</option></select>
+        <label class="fld">Rebuild store from files</label>
+        <button id="reloadBtn" class="ghost" title="Re-read world_bible.json from disk and repopulate the continuity DB + vector index. With a Series id entered, reloads only that folder; otherwise reloads every series.">↻ Reload lore from files</button>
       </div>
     </div>
+    <div class="status" id="reloadStatus"></div>
     <textarea id="dump" placeholder="A drowned vertical world grown around a colossal World Tree. Magic is bioluminescent sap. A reluctant silt-scraper girl who can hear the Tree's heartbeat. The Tidewardens hoard the upper canopy..."></textarea>
     <div class="row" style="margin-top:12px">
       <button id="bdBtn">Mine braindump → canon</button>
@@ -148,7 +239,7 @@
   <section class="panel" id="fwPanel" style="display:none">
     <h2>2 · Chapter framework</h2>
     <p class="hint">Generate a season-length outline from the world bible. Review it, then
-      produce chapters from it below. Rebuild any time — it won't touch chapters already made.</p>
+      build chapters from it below. Rebuild any time — it won't touch chapters already made.</p>
     <div class="row">
       <div>
         <label class="fld" for="fwCount">Chapters</label>
@@ -162,8 +253,9 @@
   <!-- STEP 3: CHAPTERS -->
   <section class="panel" id="chPanel" style="display:none">
     <h2>3 · Chapters</h2>
-    <p class="hint">Each framework beat becomes a chapter: authored, QA'd, voiced and published by
-      the agent pipeline. Open one to read its summary, full text, and listen to the audio.</p>
+    <p class="hint">Open a chapter to build it step by step — pick the characters in it, generate and
+      edit their current states, lay out the plot points, write the prose, cast voices, render the
+      audio line by line, then combine, cover and publish.</p>
     <div class="fw" id="fwList"></div>
   </section>
 </main>
@@ -173,8 +265,13 @@
   <div class="body" id="jobsBody"></div>
 </div>
 
+<div id="logsBtn" title="Show generation logs">
+  <span class="dot"></span><span>Logs</span><span class="count" id="logsCount"></span>
+</div>
+
 <script>
 const $ = (id) => document.getElementById(id);
+const enc = encodeURIComponent;
 const esc = (s) => (s ?? '').toString().replace(/[&<>"]/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -189,7 +286,9 @@ async function api(method, path, body) {
 
 let SID = '';                 // active series
 let DETAIL = null;            // last /series/<sid> detail
-const openTabs = {};          // chapter -> active tab name (persist across reloads)
+const openWiz = {};           // chapter -> true while its wizard is open
+const WIZ = {};               // chapter -> last workspace payload
+const wizSec = {};            // chapter -> { sectionName: open? } collapse memory
 
 function setStep(n) {
   document.querySelectorAll('.steps .step').forEach((el, i) =>
@@ -197,18 +296,35 @@ function setStep(n) {
 }
 
 // ---------------- step 1: braindump ----------------
+const knownSeries = new Set();
+
 async function loadSeriesOptions() {
+  const map = new Map();
   try {
     const { series = [] } = await api('GET', '/api/gen/series');
-    $('existing').innerHTML = '<option value="">— pick a series —</option>' +
-      series.map(s => `<option value="${esc(s.series_id)}">${esc(s.title || s.series_id)} (ch${s.current_chapter})</option>`).join('');
+    for (const s of series)
+      map.set(s.series_id, { id: s.series_id, title: s.title || s.series_id,
+                             chapter: s.current_chapter || 0, inDb: true });
   } catch (_) {}
+  try {
+    const { series = [] } = await api('GET', '/api/series');
+    for (const id of series)
+      if (!map.has(id)) map.set(id, { id, title: id, chapter: 0, inDb: false });
+  } catch (_) {}
+
+  knownSeries.clear();
+  const opts = [...map.values()].sort((a, b) => a.id.localeCompare(b.id))
+    .map(s => {
+      knownSeries.add(s.id);
+      const label = s.title + (s.inDb ? ` (ch${s.chapter})` : ' — on disk, not loaded');
+      return `<option value="${esc(s.id)}">${esc(label)}</option>`;
+    }).join('');
+  $('series-list').innerHTML = opts;
 }
 
-$('existing').addEventListener('change', e => {
-  const v = e.target.value;
-  if (!v) return;
-  $('sid').value = v;
+$('sid').addEventListener('change', () => {
+  const v = $('sid').value.trim();
+  if (!v || !knownSeries.has(v)) return;
   SID = v;
   $('bdResult').innerHTML = '<div class="muted">Loaded existing series. Add more notes above, or jump to the framework / chapters below.</div>';
   $('fwPanel').style.display = 'block';
@@ -245,6 +361,35 @@ function bdResultView(r) {
   return `<div><div class="muted" style="margin-bottom:6px">Extracted:</div>${lore}${add}${upd}</div>`;
 }
 
+// ---------------- reload lore from disk ----------------
+async function reloadLore() {
+  const st = $('reloadStatus'); st.className = 'status';
+  const sid = $('sid').value.trim();
+  $('reloadBtn').disabled = true;
+  st.textContent = sid ? `Reloading lore for “${sid}” from files…`
+                       : 'Reloading lore for all series from files…';
+  try {
+    const r = await api('POST', '/api/gen/reload-lore', sid ? { series: sid } : {});
+    if (sid) {
+      st.className = 'status ok';
+      st.textContent = `Repopulated “${r.series_id}” from disk · ${r.characters} character(s)`
+        + (r.indexed_chunks ? ` · ${r.indexed_chunks} lore chunk(s) indexed` : '') + '.';
+      SID = r.series_id;
+      $('fwPanel').style.display = 'block';
+    } else {
+      const ok = (r.reloaded || []).filter(s => s.ok);
+      const chunks = ok.reduce((n, s) => n + (s.indexed_chunks || 0), 0);
+      st.className = 'status ok';
+      st.textContent = `Repopulated ${ok.length} series from disk`
+        + (chunks ? ` · ${chunks} lore chunk(s) indexed` : '')
+        + (ok.length ? ` (${ok.map(s => s.series_id).join(', ')}).` : '.');
+    }
+    await loadSeriesOptions();
+    if (SID) await refreshSeries();
+  } catch (e) { st.className = 'status err'; st.textContent = e.message; }
+  finally { $('reloadBtn').disabled = false; }
+}
+
 // ---------------- step 2: framework ----------------
 async function buildFramework() {
   if (!SID) { $('fwStatus').textContent = 'Braindump a series first.'; return; }
@@ -252,7 +397,7 @@ async function buildFramework() {
   const st = $('fwStatus'); st.className = 'status';
   $('fwBtn').disabled = true; st.textContent = 'Designing the season arc…';
   try {
-    const r = await api('POST', `/api/gen/series/${encodeURIComponent(SID)}/framework`, { count });
+    const r = await api('POST', `/api/gen/series/${enc(SID)}/framework`, { count });
     st.className = 'status ok';
     st.textContent = `Framework ready — ${ (r.chapter_outline||[]).length } chapters.`;
     $('chPanel').style.display = 'block';
@@ -263,131 +408,543 @@ async function buildFramework() {
   finally { $('fwBtn').disabled = false; }
 }
 
-// ---------------- step 3: chapters ----------------
+// ---------------- step 3: chapter list ----------------
 async function refreshSeries() {
   if (!SID) return;
-  try { DETAIL = await api('GET', '/api/gen/series/' + encodeURIComponent(SID)); }
+  try { DETAIL = await api('GET', '/api/gen/series/' + enc(SID)); }
   catch (e) { return; }
   const outline = DETAIL.chapter_outline || [];
   const made = new Set((DETAIL.episodes || []).map(e => e.chapter));
   if (outline.length) { $('fwPanel').style.display = 'block'; $('chPanel').style.display = 'block'; }
 
-  // chapter indexes to show: union of framework + any generated chapters
   const idx = new Set(outline.map(o => o.index));
   made.forEach(c => idx.add(c));
   const rows = [...idx].sort((a, b) => a - b);
-  const nextC = (DETAIL.current_chapter || 0) + 1;
+  const cur = DETAIL.current_chapter || 0;
 
   $('fwList').innerHTML = rows.map(i => {
     const beat = outline.find(o => o.index === i) || { index: i, title: `Chapter ${i}` };
     const done = made.has(i);
-    const isNext = i === nextC;
-    const state = done ? '<span class="state done">generated</span>'
+    const state = done ? '<span class="state done">published</span>'
                        : '<span class="state draft">planned</span>';
     const teaser = beat.synopsis || beat.beat || '';
-    const act = done
-      ? `<button class="ghost small" onclick="regen(${i},this)">Regenerate</button>`
-      : (isNext
-          ? `<button class="small" onclick="generate(${i},this)">Generate chapter ${i}</button>`
-          : `<button class="small" disabled title="Generate chapter ${nextC} first">Locked</button>`);
+    const beforeOk = i > cur, afterOk = i >= cur;
+    const ins = `<span class="ins">`
+      + `<button class="ins-btn" ${beforeOk ? '' : 'disabled'} title="${beforeOk
+          ? 'Insert a new chapter before this one'
+          : 'Already generated — can\'t insert before it'}" `
+      + `onclick="insertForm(${i},'before',this)">+ before</button>`
+      + `<button class="ins-btn" ${afterOk ? '' : 'disabled'} title="${afterOk
+          ? 'Insert a new chapter after this one'
+          : 'Already generated — can\'t insert after it'}" `
+      + `onclick="insertForm(${i},'after',this)">+ after</button></span>`;
     return `<div class="fwitem" data-ch="${i}">
       <div class="fwhead">
         <div class="n">CH ${i}</div>
         <div class="ti"><h4>${esc(beat.title || ('Chapter ' + i))}</h4>
           ${teaser ? `<small>${esc(teaser)}</small>` : ''}</div>
         ${state}
-        <button class="ghost small" onclick="toggleTabs(${i},this)">${done ? 'Open' : 'Beat'}</button>
-        ${act}
+        <button class="small" onclick="toggleWizard(${i},this)">${openWiz[i] ? 'Close' : 'Open workspace'}</button>
+        ${ins}
       </div>
-      <div class="tabbody" id="tb-${i}" style="display:none"></div>
+      <div class="insbox" id="ins-${i}" style="display:none"></div>
+      <div class="wiz" id="wiz-${i}" style="display:none"></div>
     </div>`;
   }).join('') || '<div class="muted">No framework yet — build one above.</div>';
 
-  // re-open any chapter the user had expanded
-  for (const c of Object.keys(openTabs)) {
-    const tb = $('tb-' + c);
-    if (tb) { tb.style.display = 'block'; loadTabs(+c); }
+  for (const c of Object.keys(openWiz)) {
+    if (!openWiz[c]) continue;
+    const el = $('wiz-' + c);
+    if (el) { el.style.display = 'block'; loadWizard(+c); }
   }
 }
 
-async function toggleTabs(ch, btn) {
-  const tb = $('tb-' + ch);
-  if (!tb) return;
-  const show = tb.style.display === 'none';
-  tb.style.display = show ? 'block' : 'none';
-  if (show) { openTabs[ch] = openTabs[ch] || 'summary'; await loadTabs(ch); }
-  else delete openTabs[ch];
+// ---------------- the chapter wizard ----------------
+async function toggleWizard(ch, btn) {
+  const el = $('wiz-' + ch);
+  if (!el) return;
+  const show = !openWiz[ch];
+  openWiz[ch] = show;
+  el.style.display = show ? 'block' : 'none';
+  if (btn) btn.textContent = show ? 'Close' : 'Open workspace';
+  if (show) { el.innerHTML = '<div class="muted" style="padding:12px">Loading workspace…</div>'; await loadWizard(ch); }
 }
 
-async function loadTabs(ch) {
-  const tb = $('tb-' + ch);
-  if (!tb) return;
-  let d;
-  try { d = await api('GET', `/api/gen/series/${encodeURIComponent(SID)}/chapter/${ch}`); }
-  catch (e) { tb.innerHTML = `<div class="muted">${esc(e.message)}</div>`; return; }
+async function loadWizard(ch) {
+  const el = $('wiz-' + ch);
+  if (!el) return;
+  let p;
+  try { p = await api('GET', `/api/gen/series/${enc(SID)}/chapter/${ch}/workspace`); }
+  catch (e) { el.innerHTML = `<div class="status err" style="padding:12px">${esc(e.message)}</div>`; return; }
+  WIZ[ch] = p;
+  el.innerHTML = renderWizard(ch, p);
+  WIZ[ch].snapshot = sectionSnapshot(ch);   // baseline for "what changed" detection
+}
 
-  const active = openTabs[ch] || 'summary';
-  const audio = d.audio_url
-    ? `<audio controls preload="none" src="${esc(d.audio_url)}"></audio>`
-    : '<div class="muted">No audio yet — generate this chapter to voice it.</div>';
-  const text = d.text
-    ? esc(d.text)
-    : '';
-  const summary = d.summary || (d.beat && (d.beat.synopsis || d.beat.beat)) || '';
+// Snapshot of every editable section's current DOM state. Used to detect which
+// sections actually changed so a "save all" never re-saves an untouched draft
+// (which would wipe the chapter's script/audio).
+function sectionSnapshot(ch) {
+  const snap = {};
+  if (document.querySelector(`#wiz-${ch} .charcard`))
+    snap.chars = JSON.stringify({ selected: checkedChars(ch), records: collectRecords(ch) });
+  const plotEl = $(`plot-${ch}`);   if (plotEl)  snap.plot  = plotEl.value;
+  const notesEl = $(`notes-${ch}`); if (notesEl) snap.notes = notesEl.value;
+  const draftEl = $(`draft-${ch}`); if (draftEl) snap.draft = draftEl.value;
+  return snap;
+}
 
-  tb.innerHTML = `
-    <div class="tabs">
-      <button class="tab ${active==='summary'?'on':''}" onclick="pickTab(${ch},'summary')">Summary</button>
-      <button class="tab ${active==='text'?'on':''}" onclick="pickTab(${ch},'text')">Text${d.word_count?`<span class="wc">${d.word_count}w</span>`:''}</button>
-      <button class="tab ${active==='audio'?'on':''}" onclick="pickTab(${ch},'audio')">Audio</button>
+function secOpen(ch, name, def) {
+  wizSec[ch] = wizSec[ch] || {};
+  if (wizSec[ch][name] === undefined) wizSec[ch][name] = def;
+  return wizSec[ch][name];
+}
+function toggleSec(ch, name) {
+  wizSec[ch] = wizSec[ch] || {};
+  wizSec[ch][name] = !wizSec[ch][name];
+  const sec = document.querySelector(`#wiz-${ch} .wstep[data-sec="${name}"]`);
+  if (sec) sec.classList.toggle('closed');
+}
+
+function step(ch, name, num, title, done, bodyHtml) {
+  const open = secOpen(ch, name, !done || num <= 1);
+  return `<div class="wstep ${open ? '' : 'closed'}" data-sec="${name}">
+    <div class="wh" onclick="toggleSec(${ch},'${name}')">
+      <span class="num ${done ? 'done' : ''}">${done ? '✓' : num}</span>
+      <h3>${esc(title)}</h3><span class="chev">${open ? '▾' : '▸'}</span>
     </div>
-    <div class="tabpane sum ${active==='summary'?'on':''}" data-pane="summary">
-      ${summary ? esc(summary) : '<span class="muted">No summary yet.</span>'}
-      ${!d.generated ? '<div class="muted" style="margin-top:8px">Planned beat — not generated yet.</div>' : ''}
-    </div>
-    <div class="tabpane txt ${active==='text'?'on':''}" data-pane="text">
-      ${text || '<span class="muted">Chapter not generated yet.</span>'}
-    </div>
-    <div class="tabpane ${active==='audio'?'on':''}" data-pane="audio">
-      ${audio}
+    <div class="wbody">${bodyHtml}</div>
+  </div>`;
+}
+
+function renderWizard(ch, p) {
+  const w = p.workspace || {};
+  const roster = p.roster || [];
+  const selected = new Set(w.selected_characters || []);
+  const states = w.character_states || {};
+  const plot = w.plot_points || [];
+  const script = w.script || [];
+  const qa = w.qa;
+
+  // 1 · unified character cards: state + full sheet, captured per-chapter.
+  const records = w.character_records || {};
+  const updates = w.sheet_updates || {};
+  const abil = ['strength','wisdom','intelligence','dexterity','constitution','charisma','luck'];
+  const recFor = (c) => {
+    const r = records[c.name];
+    return (r && typeof r === 'object') ? r : { ...c, state: states[c.name] || '' };
+  };
+  const charCards = roster.map(c => {
+    const on = selected.has(c.name);
+    const r = recFor(c);
+    const frozen = !!records[c.name];
+    const stat = (k) => (r.stats || c.stats || {})[k] ?? 10;
+    const skillsArr = r.skills || c.skills || [];
+    const skillsStr = Array.isArray(skillsArr) ? skillsArr.join(', ') : (skillsArr || '');
+    const src = r.source === 'previous_chapter'
+        ? `<span class="src">carried forward from Ch ${r.seeded_from_chapter}</span>`
+        : (frozen ? `<span class="src">captured from base sheet</span>` : '');
+    const statInputs = abil.map(k =>
+      `<label class="statf"><span>${k.slice(0,3).toUpperCase()}</span>
+         <input type="number" min="1" max="20" data-stat="${k}" value="${stat(k)}"/></label>`).join('');
+    const ta = (key, label, val) =>
+      `<label class="shf"><span>${esc(label)}</span><textarea data-field="${key}">${esc(val ?? '')}</textarea></label>`;
+    const u = updates[c.name];
+    const changeHtml = u
+      ? `<div class="muted" style="margin-top:6px;color:var(--teal)">▲ ${
+          (u.changes && u.changes.length ? u.changes.join(' · ') : 'no change')}${
+          u.summary ? ` — <i>${esc(u.summary)}</i>` : ''}</div>`
+      : '';
+    return `<div class="charcard${on ? '' : ' off'}" data-name="${esc(c.name)}">
+      <div class="cc-head">
+        <label class="charchk">
+          <input type="checkbox" class="charsel" value="${esc(c.name)}" ${on ? 'checked' : ''}
+                 onchange="toggleChar(this)"/>
+          <span><span class="cn">${esc(c.name)}</span>
+            ${c.role ? `<span class="cr"> — ${esc(c.role)}</span>` : ''}${src}</span>
+        </label>
+        <button class="ghost small cc-rm" title="Remove ${esc(c.name)} from this series"
+                onclick="removeCharacter(${ch},'${esc(c.name)}')">✕ Remove</button>
+      </div>
+      <div class="cc-body">
+        <label class="shf"><span>State at start of chapter ${ch}</span>
+          <textarea class="state-ta" data-field="state" data-name="${esc(c.name)}"
+            placeholder="Current state at the start of this chapter…">${esc(r.state || '')}</textarea></label>
+        <div class="sh-grid">
+          <label class="shf"><span>Role</span><input data-field="role" value="${esc(r.role ?? c.role ?? '')}"/></label>
+          <label class="shf sm"><span>Level</span><input type="number" min="1" data-field="level" value="${r.level ?? c.level ?? 1}"/></label>
+          <label class="shf"><span>Class</span><input data-field="char_class" value="${esc(r.char_class ?? c.char_class ?? '')}"/></label>
+        </div>
+        <div class="statgrid">${statInputs}</div>
+        <label class="shf"><span>Skills (comma-separated)</span><input data-field="skills" value="${esc(skillsStr)}"/></label>
+        ${ta('personality','Personality', r.personality ?? c.personality)}
+        ${ta('speaking_style','Speaking style', r.speaking_style ?? c.speaking_style)}
+        ${ta('physical_description','Physical description', r.physical_description ?? c.physical_description)}
+        ${ta('backstory','Backstory', r.backstory ?? c.backstory)}
+        ${ta('quirks','Quirks', r.quirks ?? c.quirks)}
+        ${ta('voice_brief','Voice brief', r.voice_brief ?? c.voice_brief)}
+        ${changeHtml}
+      </div>
     </div>`;
+  }).join('') || '<div class="muted">No characters in this series yet — braindump some.</div>';
+  const genLabel = ch > 1
+    ? `Seed records · pull forward from Ch ${ch - 1}`
+    : 'Seed records from base sheets';
+  const s1 = step(ch, 'chars', 1, 'Characters in this chapter', selected.size > 0,
+    `<div class="desc">Check each character that appears in chapter ${ch}. Each card is that
+       character's unified state for this chapter: their full description and stats are captured
+       at chapter creation — pulled forward from the previous chapter when available, otherwise
+       frozen from the base character sheet. The narrative state is <b>not</b> auto-filled — type
+       each character's start-of-chapter state yourself. Edit anything, then <b>Save</b>; everything is written to this chapter's
+       folder (characters.json) and injected as a top priority into the prose. Unchecked
+       characters are left out of the chapter entirely.</div>
+     ${charCards}
+     <div class="addchar">
+       <input id="newchar-${ch}" placeholder="New character name…"/>
+       <input id="newcharrole-${ch}" placeholder="Role (optional)"/>
+       <button class="small" onclick="addCharacter(${ch})">+ Add character</button>
+       <span class="status" id="st-addchar-${ch}"></span></div>
+     <div class="row" style="margin-top:12px">
+       <button class="small" onclick="genStates(${ch})">${esc(genLabel)}</button>
+       <button class="ghost small" onclick="saveCharacters(${ch})">Save characters &amp; states</button>
+       <button class="ghost small" ${w.draft ? '' : 'disabled'} title="Advance every character's RPG stats based on what they did in chapter ${ch}, then re-freeze this chapter's records." onclick="postJob(${ch},'update-sheets','st-chars-${ch}','Advancing stats from chapter…')">Auto-advance stats from Ch ${ch}</button>
+       <span class="status" id="st-chars-${ch}"></span></div>`);
+
+  // 2 · plot points
+  const s3 = step(ch, 'plot', 2, 'Plot points', plot.length > 0,
+    `<div class="desc">The major actions of the chapter, one per line. Edit, then save — every one is
+       a required beat in the prose.</div>
+     <textarea id="plot-${ch}" style="min-height:140px" placeholder="One major action per line…">${esc(plot.join('\n'))}</textarea>
+     <div class="row" style="margin-top:8px">
+       <button class="small" onclick="postJob(${ch},'plot/generate','st-plot-${ch}','Generating plot points…')">Generate plot points</button>
+       <button class="ghost small" onclick="savePlot(${ch})">Save plot points</button>
+       <span class="status" id="st-plot-${ch}"></span></div>
+     <div class="desc" style="margin-top:14px">Special notes — free-form guidance (tone, pacing, things to avoid, callbacks).
+       Injected into the author prompt right after the plot points.</div>
+     <textarea id="notes-${ch}" style="min-height:90px" placeholder="Anything the writer must keep in mind for this chapter…">${esc(w.special_notes || '')}</textarea>
+     <div class="row" style="margin-top:8px">
+       <button class="ghost small" onclick="saveNotes(${ch})">Save special notes</button>
+       <span class="status" id="st-notes-${ch}"></span></div>`);
+
+  // 3 · author
+  const wc = w.draft ? w.draft.split(/\s+/).filter(Boolean).length : 0;
+  const s4 = step(ch, 'author', 3, 'Write the chapter', !!w.draft,
+    `<div class="desc">The prose uses the current states + plot points (highest priority), the full
+       lore, and the previous chapter. Edit the result, then save.</div>
+     <textarea id="draft-${ch}" style="min-height:240px" placeholder="The chapter text appears here once written…">${esc(w.draft || '')}</textarea>
+     <div class="row" style="margin-top:8px">
+       <button class="small" onclick="postJob(${ch},'author','st-author-${ch}','Writing chapter…')">Write chapter</button>
+       <button class="ghost small" onclick="saveDraft(${ch})">Save draft</button>
+       <span class="wc">${wc} words</span>
+       <span class="status" id="st-author-${ch}"></span></div>`);
+
+  // 4 · QA
+  const qaHtml = qa
+    ? `<div class="qabox"><div class="verdict ${esc(qa.verdict)}">Verdict: ${esc(qa.verdict)}</div>
+        ${(qa.notes || []).length ? '<ul style="margin:8px 0 0;padding-left:18px">'
+          + qa.notes.map(n => `<li class="muted">${esc(n)}</li>`).join('') + '</ul>' : ''}</div>`
+    : '<div class="muted">Not run yet.</div>';
+  const s5 = step(ch, 'qa', 4, 'Continuity & safety check', !!qa,
+    `<div class="desc">Advisory canon/safety review of the draft. You can revise and re-run.</div>
+     ${qaHtml}
+     <div class="row" style="margin-top:8px">
+       <button class="small" onclick="postJob(${ch},'qa','st-qa-${ch}','Running QA…')">Run QA</button>
+       <span class="status" id="st-qa-${ch}"></span></div>`);
+
+  // 5 · cast voices  (distinct speakers -> voice)
+  const speakers = [];
+  const seen = new Set();
+  for (const ln of script) { if (!seen.has(ln.speaker)) { seen.add(ln.speaker); speakers.push(ln.speaker); } }
+  const voiceRows = speakers.map(sp => {
+    const vid = (script.find(l => l.speaker === sp) || {}).voice_id || '';
+    const opts = (p.voices || []).map(v =>
+      `<option value="${esc(v.voice_id)}" ${v.voice_id === vid ? 'selected' : ''}>${esc(v.name)}${v.gender ? ` (${esc(v.gender)}${v.accent ? '/' + esc(v.accent) : ''})` : ''}</option>`).join('');
+    return `<div class="voicerow"><span class="vn">${esc(sp)}</span>
+      <select onchange="changeVoice(${ch},'${esc(sp)}',this.value)">${opts}</select></div>`;
+  }).join('');
+  const s6 = step(ch, 'cast', 5, 'Cast voices', script.length > 0,
+    `<div class="desc">Parse the prose into spoken lines and assign each character a voice. A
+       character keeps its voice across chapters; changing it here saves it to the character.</div>
+     <div class="row"><button class="small" onclick="postJob(${ch},'cast','st-cast-${ch}','Parsing into voices…')">Parse into voices</button>
+       <span class="status" id="st-cast-${ch}"></span></div>
+     ${script.length ? `<div style="margin-top:10px">${voiceRows}</div>` : ''}`);
+
+  // 6 · sentence assignments
+  const speakerOpts = (sp) => {
+    const names = ['Narrator', ...roster.map(c => c.name).filter(n => n !== 'Narrator')];
+    return names.map(n => `<option value="${esc(n)}" ${n === sp ? 'selected' : ''}>${esc(n)}</option>`).join('');
+  };
+  const lineRows = script.map(ln => `
+    <div class="linerow ${ln.speaker === 'Narrator' ? 'narr' : ''}">
+      <select onchange="changeLine(${ch},${ln.idx},this.value)">${speakerOpts(ln.speaker)}</select>
+      <div class="lt">${esc(ln.text)} ${ln.emotion ? `<span class="em">[${esc(ln.emotion)}]</span>` : ''}</div>
+    </div>`).join('');
+  const s7 = step(ch, 'assign', 6, 'Edit line assignments', script.length > 0,
+    script.length
+      ? `<div class="desc">Re-attribute any line to a different speaker before rendering audio.</div>${lineRows}`
+      : '<div class="muted">Cast the chapter first.</div>');
+
+  // 7 · render audio
+  const renderedCount = script.filter(l => l.has_clip).length;
+  const s8 = step(ch, 'tts', 7, 'Generate audio', script.length > 0 && renderedCount === script.length,
+    `<div class="desc">Render every line to speech with its assigned voice.</div>
+     <div class="row"><button class="small" ${script.length ? '' : 'disabled'} onclick="postJob(${ch},'tts','st-tts-${ch}','Rendering audio…')">Generate audio</button>
+       <span class="muted">${renderedCount}/${script.length} lines rendered</span>
+       <span class="status" id="st-tts-${ch}"></span></div>`);
+
+  // 8 · review + regenerate
+  const reviewRows = script.filter(l => l.has_clip).map(ln => `
+    <div class="reviewrow">
+      <span class="sp">${esc(ln.speaker)}</span>
+      <audio controls preload="none" src="/api/gen/series/${enc(SID)}/chapter/${ch}/clip/${ln.idx}?v=${ln.clip_v || 0}"></audio>
+      <button class="ghost small" onclick="postJob(${ch},'tts/${ln.idx}','st-rev-${ch}','Re-rendering line…')">Regenerate</button>
+    </div>`).join('');
+  const s9 = step(ch, 'review', 8, 'Review & regenerate clips', renderedCount > 0 && renderedCount === script.length,
+    renderedCount
+      ? `<div class="desc">Listen through each line and regenerate any that need another take.</div>
+         ${reviewRows}<div class="status" id="st-rev-${ch}"></div>`
+      : '<div class="muted">Render the audio first.</div>');
+
+  // 9 · combine
+  const combined = w.combined_url
+    ? `<audio controls preload="none" src="${esc(w.combined_url)}" style="width:100%;margin-top:8px"></audio>`
+    : '<div class="muted">Not combined yet.</div>';
+  const canCombine = script.length > 0 && renderedCount === script.length;
+  const s10 = step(ch, 'combine', 9, 'Combine into one file', !!w.combined_url,
+    `<div class="desc">Stitch every clip into a single chapter audio file.</div>
+     ${combined}
+     <div class="row" style="margin-top:8px"><button class="small" ${canCombine ? '' : 'disabled'} onclick="postJob(${ch},'combine','st-comb-${ch}','Combining…')">Combine into single file</button>
+       <span class="status" id="st-comb-${ch}"></span></div>`);
+
+  // 10 · cover
+  const coverHtml = w.cover_url ? `<img class="cover-prev" src="${esc(w.cover_url)}" alt="cover"/>` : '<div class="muted">No cover yet.</div>';
+  const s11 = step(ch, 'cover', 10, 'Cover art', !!w.cover_url,
+    `<div class="desc">Generate cover art from the world's visual identity and this chapter.</div>
+     ${coverHtml}
+     <div class="row" style="margin-top:8px"><button class="small" onclick="postJob(${ch},'cover','st-cover-${ch}','Generating cover…')">Generate cover</button>
+       <span class="status" id="st-cover-${ch}"></span></div>`);
+
+  // 11 · publish
+  const pub = w.published;
+  const pubHtml = pub
+    ? '<div class="qabox">' + Object.entries(pub).map(([k, v]) =>
+        `<div class="muted"><b style="color:var(--teal)">${esc(k)}</b>: ${/^https?:/.test(v) ? `<a href="${esc(v)}" target="_blank">${esc(v)}</a>` : esc(v)}</div>`).join('') + '</div>'
+    : '<div class="muted">Not published yet.</div>';
+  const s12 = step(ch, 'publish', 11, 'Publish', !!pub,
+    `<div class="desc">Add this chapter to the RSS feed + web player.</div>
+     ${pubHtml}
+     <div class="row" style="margin-top:8px"><button class="small" ${w.combined_url ? '' : 'disabled'} onclick="postJob(${ch},'publish','st-pub-${ch}','Publishing…')">Publish chapter</button>
+       <span class="status" id="st-pub-${ch}"></span></div>`);
+
+  // (character sheets are now unified into step 1 at the top of the workspace)
+
+  return s1 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12;
 }
 
-function pickTab(ch, name) {
-  openTabs[ch] = name;
-  const tb = $('tb-' + ch);
-  tb.querySelectorAll('.tab').forEach(b =>
-    b.classList.toggle('on', b.textContent.toLowerCase().startsWith(name)));
-  tb.querySelectorAll('.tabpane').forEach(p =>
-    p.classList.toggle('on', p.dataset.pane === name));
+// ---- generic job kickoff: POST then poll; reload wizard when done ----
+async function postJob(ch, sub, statusId, msg) {
+  const st = statusId ? $(statusId) : null;
+  if (st) { st.className = 'status'; st.textContent = msg || 'Working…'; }
+  try {
+    await saveAllSections(ch, false);   // persist edits in every section before generating
+    await api('POST', `/api/gen/series/${enc(SID)}/chapter/${ch}/${sub}`);
+    trackJobs();
+  } catch (e) { if (st) { st.className = 'status err'; st.textContent = e.message; } }
 }
 
-async function generate(ch, btn) {
-  btn.disabled = true; btn.textContent = 'Queued…';
-  try { await api('POST', `/api/gen/series/${encodeURIComponent(SID)}/next`); trackJobs(); }
-  catch (e) { alert('Failed: ' + e.message); btn.disabled = false; }
+// ---- synchronous saves ----
+async function syncSave(ch, sub, body, statusId, okMsg) {
+  const st = statusId ? $(statusId) : null;
+  if (st) { st.className = 'status'; st.textContent = 'Saving…'; }
+  try {
+    await api('POST', `/api/gen/series/${enc(SID)}/chapter/${ch}/${sub}`, body);
+    if (st) { st.className = 'status ok'; st.textContent = okMsg || 'Saved.'; }
+    await loadWizard(ch);
+  } catch (e) { if (st) { st.className = 'status err'; st.textContent = e.message; } }
 }
 
-async function regen(ch, btn) {
-  if (!confirm(`Regenerate chapter ${ch}? The existing chapter ${ch} will be replaced.`)) return;
+// Save EVERY edited section of a chapter in one shot. Saves run sequentially
+// because each one is a read-modify-write on the same workspace record. Only
+// sections whose DOM state differs from the last loaded baseline are written —
+// in particular the draft is re-saved only when it actually changed, so saving
+// (or generating) never silently wipes the chapter's script/audio. Returns the
+// number of sections written. Pass reload=false to skip re-rendering (e.g. when
+// a generation job will reload the wizard on completion).
+async function saveAllSections(ch, reload = true) {
+  const snap = sectionSnapshot(ch);
+  const base = (WIZ[ch] && WIZ[ch].snapshot) || {};
+  const sid = enc(SID);
+  let saved = 0;
+
+  if (snap.chars !== undefined && snap.chars !== base.chars) {
+    const { selected, records } = JSON.parse(snap.chars);
+    await api('POST', `/api/gen/series/${sid}/chapter/${ch}/records`, { selected, records });
+    saved++;
+  }
+  if (snap.plot !== undefined && snap.plot !== base.plot) {
+    const plot_points = snap.plot.split('\n').map(s => s.trim()).filter(Boolean);
+    await api('POST', `/api/gen/series/${sid}/chapter/${ch}/plot`, { plot_points });
+    saved++;
+  }
+  if (snap.notes !== undefined && snap.notes !== base.notes) {
+    await api('POST', `/api/gen/series/${sid}/chapter/${ch}/notes`, { special_notes: snap.notes });
+    saved++;
+  }
+  if (snap.draft !== undefined && snap.draft !== base.draft) {
+    await api('POST', `/api/gen/series/${sid}/chapter/${ch}/draft`, { draft: snap.draft });
+    saved++;
+  }
+
+  if (reload) await loadWizard(ch);
+  else if (WIZ[ch]) WIZ[ch].snapshot = snap;   // keep baseline current without a re-render
+  return saved;
+}
+
+// shared handler for every section's Save button: persists all edited sections
+async function saveSection(ch, statusId) {
+  const st = statusId ? $(statusId) : null;
+  if (st) { st.className = 'status'; st.textContent = 'Saving all sections…'; }
+  try {
+    const n = await saveAllSections(ch);          // reloads the wizard
+    const after = statusId ? $(statusId) : null;  // element is recreated by the reload
+    if (after) { after.className = 'status ok'; after.textContent = `Saved — ${n} section${n === 1 ? '' : 's'} updated.`; }
+  } catch (e) { const after = statusId ? $(statusId) : null; if (after) { after.className = 'status err'; after.textContent = e.message; } }
+}
+
+// toggle a character in/out of the chapter — its card collapses when unchecked
+// (values stay in the DOM so a save still preserves them)
+function toggleChar(cb) {
+  const card = cb.closest('.charcard');
+  if (!card) return;
+  card.classList.toggle('off', !cb.checked);
+}
+
+function checkedChars(ch) {
+  return [...document.querySelectorAll(`#wiz-${ch} .charsel:checked`)].map(c => c.value);
+}
+
+// generate states: persist every section first so the server only writes checked characters
+async function genStates(ch) {
+  const st = $(`st-chars-${ch}`);
+  if (st) { st.className = 'status'; st.textContent = 'Saving…'; }
+  try {
+    await saveAllSections(ch, false);   // persist every section before generating
+    await api('POST', `/api/gen/series/${enc(SID)}/chapter/${ch}/states/generate`);
+    trackJobs();
+  } catch (e) { if (st) { st.className = 'status err'; st.textContent = e.message; } }
+}
+
+// add a brand-new character to the series roster, then reload the wizard
+async function addCharacter(ch) {
+  const st = $(`st-addchar-${ch}`);
+  const nameEl = $(`newchar-${ch}`);
+  const roleEl = $(`newcharrole-${ch}`);
+  const name = (nameEl && nameEl.value || '').trim();
+  if (!name) { if (st) { st.className = 'status err'; st.textContent = 'Enter a name.'; } return; }
+  if (st) { st.className = 'status'; st.textContent = 'Adding…'; }
+  try {
+    await saveAllSections(ch, false);   // preserve in-progress edits on other cards
+    await api('POST', `/api/gen/series/${enc(SID)}/character/add`,
+              { name, fields: { role: (roleEl && roleEl.value || '').trim() } });
+    await loadWizard(ch);
+  } catch (e) { if (st) { st.className = 'status err'; st.textContent = e.message; } }
+}
+
+// remove a character from the series roster, then reload the wizard
+async function removeCharacter(ch, name) {
+  if (!confirm(`Remove “${name}” from this series? Their base character sheet will be deleted.`)) return;
+  try {
+    await saveAllSections(ch, false);   // preserve in-progress edits on other cards
+    await api('POST', `/api/gen/series/${enc(SID)}/character/remove`, { name });
+    await loadWizard(ch);
+  } catch (e) { alert(e.message); }
+}
+
+// collect the unified record (state + sheet fields + stats) from every card
+function collectRecords(ch) {
+  const records = {};
+  document.querySelectorAll(`#wiz-${ch} .charcard`).forEach(card => {
+    const name = card.dataset.name;
+    const rec = {};
+    card.querySelectorAll('[data-field]').forEach(el => { rec[el.dataset.field] = el.value; });
+    const stats = {};
+    card.querySelectorAll('[data-stat]').forEach(el => { stats[el.dataset.stat] = el.value; });
+    rec.stats = stats;
+    records[name] = rec;
+  });
+  return records;
+}
+
+// save selection + every character's full unified record; unchecked characters
+// are excluded from the chapter but their record is retained for later
+// Every section's Save button saves all sections (status shown on the clicked one)
+function saveCharacters(ch) { return saveSection(ch, `st-chars-${ch}`); }
+function savePlot(ch)       { return saveSection(ch, `st-plot-${ch}`); }
+function saveNotes(ch)      { return saveSection(ch, `st-notes-${ch}`); }
+function saveDraft(ch)      { return saveSection(ch, `st-author-${ch}`); }
+function changeVoice(ch, character, voice_id) {
+  syncSave(ch, 'voice', { character, voice_id }, `st-cast-${ch}`, `${character} voice updated.`);
+}
+function changeLine(ch, idx, speaker) {
+  syncSave(ch, 'line', { idx, speaker }, null, '');
+}
+
+// ---------------- insert chapter ----------------
+function insertForm(ch, position, btn) {
+  const box = $('ins-' + ch);
+  if (!box) return;
+  if (box.style.display === 'block' && box.dataset.pos === position) { box.style.display = 'none'; return; }
+  box.dataset.pos = position;
+  box.style.display = 'block';
+  const where = position === 'before' ? `before chapter ${ch}` : `after chapter ${ch}`;
+  box.innerHTML = `
+    <div class="ttl">Insert a new planned chapter ${where}. Following chapters shift down by one.</div>
+    <input id="ins-title-${ch}" placeholder="Chapter title (optional)" />
+    <textarea id="ins-syn-${ch}" placeholder="What happens in this chapter? (optional synopsis / beat)"></textarea>
+    <div class="row">
+      <button class="small" onclick="doInsert(${ch},'${position}',this)">Insert chapter</button>
+      <button class="ghost small" onclick="$('ins-${ch}').style.display='none'">Cancel</button>
+      <span class="status" id="ins-st-${ch}"></span>
+    </div>`;
+  const t = $('ins-title-' + ch); if (t) t.focus();
+}
+
+async function doInsert(ch, position, btn) {
+  const title = ($('ins-title-' + ch)?.value || '').trim();
+  const synopsis = ($('ins-syn-' + ch)?.value || '').trim();
+  const st = $('ins-st-' + ch); if (st) { st.className = 'status'; st.textContent = 'Inserting…'; }
   btn.disabled = true;
-  try { await api('POST', `/api/gen/series/${encodeURIComponent(SID)}/chapter/${ch}/regenerate`); trackJobs(); }
-  catch (e) { alert('Failed: ' + e.message); btn.disabled = false; }
+  try {
+    await api('POST', `/api/gen/series/${enc(SID)}/chapter/${ch}/insert`, { position, title, synopsis });
+    await refreshSeries();
+  } catch (e) {
+    if (st) { st.className = 'status err'; st.textContent = e.message; }
+    btn.disabled = false;
+  }
 }
 
 // ---------------- jobs polling ----------------
 let pollTimer = null, lastActive = false;
+let jobsOpen = false;           // logs dialogue starts minimized; never pops on its own
+function renderJobsVisibility() {
+  $('jobs').style.display = jobsOpen ? 'block' : 'none';
+  $('logsBtn').style.display = jobsOpen ? 'none' : 'flex';
+}
 async function pollJobs() {
   let jobs = [];
   try { ({ jobs = [] } = await api('GET', '/api/gen/jobs')); } catch (_) { return; }
   const mine = jobs.filter(j => j.series_id === SID);
-  if (!mine.length) { $('jobs').style.display = 'none'; }
-  else {
-    $('jobs').style.display = 'block';
-    $('jobsBody').innerHTML = mine.slice(0, 8).map(jobRow).join('');
-  }
+  $('jobsBody').innerHTML = mine.length
+    ? mine.slice(0, 8).map(jobRow).join('')
+    : '<div class="job muted" style="font-size:12px">No generation jobs yet.</div>';
   const active = jobs.some(j => j.status === 'queued' || j.status === 'running');
-  if (!active && lastActive) refreshSeries();   // a run finished → refresh chapters
+  $('logsBtn').classList.toggle('active', active);
+  $('logsCount').textContent = mine.length ? `(${mine.length})` : '';
+  renderJobsVisibility();
+  if (!active && lastActive) {     // a run finished -> refresh list + open wizards
+    refreshSeries();
+    for (const c of Object.keys(openWiz)) if (openWiz[c]) loadWizard(+c);
+  }
   lastActive = active;
   clearTimeout(pollTimer);
   pollTimer = setTimeout(pollJobs, active ? 1500 : 5000);
@@ -407,12 +964,15 @@ function trackJobs() { lastActive = true; pollJobs(); }
 
 // ---------------- wire up ----------------
 $('bdBtn').addEventListener('click', braindump);
+$('reloadBtn').addEventListener('click', reloadLore);
 $('fwBtn').addEventListener('click', buildFramework);
-$('hideJobs').addEventListener('click', () => $('jobs').style.display = 'none');
+$('hideJobs').addEventListener('click', () => { jobsOpen = false; renderJobsVisibility(); });
+$('logsBtn').addEventListener('click', () => { jobsOpen = true; renderJobsVisibility(); });
 
 if (location.protocol === 'file:') {
   $('fileWarn').style.display = 'block';
   $('bdBtn').disabled = true;
+  $('reloadBtn').disabled = true;
 } else {
   loadSeriesOptions();
   pollJobs();
