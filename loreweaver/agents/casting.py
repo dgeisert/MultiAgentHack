@@ -18,7 +18,7 @@ import json
 import re
 
 from ..state import SeriesState
-from ..tools import elevenlabs, gemini
+from ..tools import elevenlabs, llm
 from ..tools.util import log
 
 # Heuristic synonyms so a free-text brief maps onto catalog labels. Matched on
@@ -161,7 +161,7 @@ def _attribute_quote(quote: str, preceding: str, following: str,
         f'QUOTED LINE: "{quote}"\n'
         f"CONTEXT AFTER: {following or '(none)'}"
     )
-    parsed = gemini.generate_json(prompt)
+    parsed = llm.generate_json(prompt)
     if not isinstance(parsed, dict):
         parsed = {}
     speaker = parsed.get("speaker") or (characters[0] if characters else "Unknown")

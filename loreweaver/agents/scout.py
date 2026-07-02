@@ -7,7 +7,7 @@ links are carried through to the published show notes for attribution.
 from __future__ import annotations
 
 from ..state import SeriesState
-from ..tools import gemini, tavily
+from ..tools import llm, tavily
 from ..tools.util import log
 
 
@@ -33,7 +33,7 @@ def run(state: SeriesState) -> dict:
         "Return JSON for a world CONCEPT with keys: title, premise, tone, audience, "
         "differentiators (3 strings), sources (array of the most relevant URLs)."
     )
-    concept = gemini.generate_json(prompt)
+    concept = llm.generate_json(prompt)
     if isinstance(concept, dict):
         concept.setdefault("sources", sources[:4])
     log("scout", f"selected concept: {concept.get('title', '?')}")

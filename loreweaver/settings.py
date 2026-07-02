@@ -26,11 +26,31 @@ DB_PATH = DATA_DIR / "continuity.db"
 VECTOR_DB_PATH = Path(os.getenv("LOREWEAVER_VECTOR_DB", DATA_DIR / "lore_vectors.db"))
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 
+# --- LLM provider selection -------------------------------------------------
+# The system generates prose/JSON via a swappable text LLM. The active provider
+# and Claude model are chosen on the Prompt Settings page and persisted to
+# data/prompt_settings.json (see prompt_config) — they are NOT read from the
+# environment. Only the API keys live in .env. The values below are the built-in
+# DEFAULTS used until an editor picks something on the settings page.
+# Image generation always uses Gemini/Imagen regardless (Claude has no image API).
+LLM_PROVIDERS = ("gemini", "claude")
+DEFAULT_LLM_PROVIDER = "gemini"
+
 GEMINI_TEXT_MODEL = os.getenv("GEMINI_TEXT_MODEL", "gemini-2.0-flash")
 GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "imagen-3.0-generate-002")
+
+# Claude text-model options offered on the settings page (model string -> label).
+CLAUDE_MODELS = {
+    "claude-opus-4-8": "Claude Opus 4.8",
+    "claude-sonnet-5": "Claude Sonnet 5",
+    "claude-fable-5": "Claude Fable 5",
+}
+DEFAULT_CLAUDE_MODEL = "claude-opus-4-8"
+
 ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "eleven_multilingual_v2")
 EMBED_MODEL = os.getenv("LOREWEAVER_EMBED_MODEL", "text-embedding-004")
 
@@ -54,12 +74,32 @@ RAG_TOP_LORE = int(os.getenv("LOREWEAVER_RAG_LORE", "4"))
 _FORCE_MOCK = os.getenv("LOREWEAVER_MOCK", "").lower() in ("1", "true", "yes")
 
 
+def llm_provider() -> str:
+    """The active text-LLM provider, from the persisted settings-page config."""
+    from . import prompt_config
+
+    return prompt_config.get_model_config()["provider"]
+
+
+def claude_text_model() -> str:
+    """The active Claude model, from the persisted settings-page config."""
+    from . import prompt_config
+
+    return prompt_config.get_model_config()["claude_model"]
+
+
+def llm_api_key() -> str | None:
+    """API key for the currently selected text LLM provider."""
+    return ANTHROPIC_API_KEY if llm_provider() == "claude" else GEMINI_API_KEY
+
+
 def mock_mode() -> bool:
     """True when we should use stub tool implementations."""
     if _FORCE_MOCK:
         return True
-    # If the core creative keys are missing, run fully mocked.
-    return not (GEMINI_API_KEY and ELEVENLABS_API_KEY and TAVILY_API_KEY)
+    # If the core creative keys are missing, run fully mocked. The required LLM
+    # key depends on the selected provider (Anthropic for Claude, else Gemini).
+    return not (llm_api_key() and ELEVENLABS_API_KEY and TAVILY_API_KEY)
 
 
 def fallback_mock() -> bool:

@@ -11,7 +11,7 @@ import json
 from .. import rag, settings
 from ..state import SeriesState
 from ..store import files
-from ..tools import gemini
+from ..tools import llm
 from ..tools.util import log
 
 
@@ -76,14 +76,14 @@ def run(state: SeriesState) -> dict:
         f"PREVIOUS CHAPTERS (full text):\n{_previous_chapters_block(story, chapter_no)}"
         f"{revise_note}"
     )
-    draft = gemini.generate_text(prompt)
+    draft = llm.generate_text(prompt)
 
     summary_prompt = (
         "In 2-3 sentences, update the rolling 'story so far' summary to include this chapter, "
         "preserving names and key facts for continuity.\n\n"
         f"PREVIOUS SUMMARY:\n{state.get('rolling_summary','')}\n\nNEW CHAPTER:\n{draft[:4000]}"
     )
-    rolling = gemini.generate_text(summary_prompt)
+    rolling = llm.generate_text(summary_prompt)
 
     saved = files.save_text_revision(story, chapter_no, draft)
     log("author", f"wrote chapter {chapter_no} ({len(draft.split())} words) -> {saved.name}")

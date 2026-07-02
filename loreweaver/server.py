@@ -393,7 +393,10 @@ def _studio_workspace_payload(series_id: str, chapter: int) -> dict:
     beat = next((c for c in outline if c.get("index") == chapter), None) or {
         "index": chapter, "title": f"Chapter {chapter}"}
 
-    catalog = elevenlabs.list_voices()
+    # Non-blocking: never wait on the live ElevenLabs API while loading a
+    # workspace. Serves a cached/built-in catalog instantly and warms the real
+    # one in the background.
+    catalog = elevenlabs.cached_voices()
     cat_by_id = {v["voice_id"]: v for v in catalog}
     roster = []
     for c in bible.get("characters", []):
@@ -517,7 +520,11 @@ class Handler(SimpleHTTPRequestHandler):
                 "writing": {
                     "sections": prompt_config.get_sections(),
                     "placeholders": prompt_config.placeholders(),
-                }
+                },
+                "model": {
+                    **prompt_config.get_model_config(),
+                    **prompt_config.model_options(),
+                },
             })
 
         # ---- generation management (read) ----
@@ -575,16 +582,26 @@ class Handler(SimpleHTTPRequestHandler):
             try:
                 length = int(self.headers.get("Content-Length", 0))
                 data = json.loads(self.rfile.read(length) or b"{}")
-                # Accept {"sections": {key: text}} or {"writing": {key: text}}.
+                # Accept {"sections": {key: text}} (or legacy {"writing": {...}})
+                # and/or {"model": {"provider", "claude_model"}}.
                 updates = data.get("sections") or data.get("writing") or {}
+                model_updates = data.get("model")
                 if not isinstance(updates, dict):
                     return self._send_json({"error": "sections must be an object"}, 400)
+                if model_updates is not None and not isinstance(model_updates, dict):
+                    return self._send_json({"error": "model must be an object"}, 400)
                 sections = prompt_config.save_sections(updates)
+                if model_updates:
+                    prompt_config.save_model_config(model_updates)
                 return self._send_json({
                     "ok": True,
                     "writing": {
                         "sections": sections,
                         "placeholders": prompt_config.placeholders(),
+                    },
+                    "model": {
+                        **prompt_config.get_model_config(),
+                        **prompt_config.model_options(),
                     },
                 })
             except Exception as e:  # noqa: BLE001
@@ -654,6 +671,11 @@ class Handler(SimpleHTTPRequestHandler):
         if m:
             sid, ch = m.group(1), int(m.group(2))
             return sync(lambda: studio_flow.set_special_notes(sid, ch, body.get("special_notes") or ""))
+        m = re.fullmatch(base + r"/prev-chapters", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            return sync(lambda: studio_flow.set_included_prev_chapters(
+                sid, ch, body.get("included_prev_chapters") or []))
         m = re.fullmatch(base + r"/draft", path)
         if m:
             sid, ch = m.group(1), int(m.group(2))
@@ -668,6 +690,50 @@ class Handler(SimpleHTTPRequestHandler):
             sid, ch = m.group(1), int(m.group(2))
             return sync(lambda: studio_flow.set_line_speaker(
                 sid, ch, int(body.get("idx", -1)), body.get("speaker") or ""))
+
+        # ---- edit a chapter's outline beat (title + short description) ----
+        m = re.fullmatch(base + r"/outline", path)
+        if m:
+            sid, ch = m.group(1), int(m.group(2))
+            try:
+                outline = continuity.update_outline_beat(
+                    sid, ch, {"title": body.get("title") or "",
+                              "synopsis": body.get("synopsis") or ""})
+            except ValueError as e:
+                return self._send_json({"error": str(e)}, 404)
+            except Exception as e:  # noqa: BLE001
+                return self._send_json({"error": f"{type(e).__name__}: {e}"}, 500)
+            return self._send_json({"ok": True, "chapter_outline": outline})
+
+        # ---- remove a planned chapter from the outline ----
+        m = re.fullmatch(base + r"/remove", path)
+        if m:
+            from .store import workspace
+            sid, ch = m.group(1), int(m.group(2))
+            s = continuity.load_series(sid)
+            if not s:
+                return self._send_json({"error": "unknown series"}, 404)
+            # Removing here would renumber an already-generated chapter — refuse so
+            # produced text/audio never falls out of sync with its number.
+            if ch <= (s.get("current_chapter") or 0):
+                return self._send_json(
+                    {"error": f"can't remove chapter {ch}: it is already generated. "
+                              f"Only planned chapters can be removed."}, 409)
+            try:
+                # tear down any in-progress workspace + on-disk artifacts for this
+                # planned chapter, drop it from the plan, then slide the tail down.
+                workspace.delete(sid, ch)
+                _delete_chapter_files(sid, ch)
+                continuity.delete_episode(sid, ch)
+                outline = continuity.remove_outline_beat(sid, ch)
+                workspace.shift_down_after(sid, ch)
+                _rebuild_feed(sid)
+            except ValueError as e:
+                return self._send_json({"error": str(e)}, 404)
+            except Exception as e:  # noqa: BLE001
+                return self._send_json({"error": f"{type(e).__name__}: {e}"}, 500)
+            return self._send_json({"ok": True, "removed": ch,
+                                    "chapter_outline": outline})
 
         # ---- background jobs (LLM / TTS / media) ----
         m = re.fullmatch(base + r"/states/generate", path)
@@ -771,6 +837,24 @@ class Handler(SimpleHTTPRequestHandler):
                 result = studio_flow.remove_character(sid, name)
             except ValueError as e:
                 return self._send_json({"error": str(e)}, 404)
+            except Exception as e:  # noqa: BLE001
+                return self._send_json({"error": f"{type(e).__name__}: {e}"}, 500)
+            return self._send_json({"ok": True, **result})
+
+        # ---- rename a character across the whole series ----
+        m = re.fullmatch(r"/api/gen/series/([^/]+)/character/rename", path)
+        if m:
+            from . import studio_flow
+            sid = m.group(1)
+            old_name = (body.get("old_name") or body.get("name") or "").strip()
+            new_name = (body.get("new_name") or "").strip()
+            if not old_name or not new_name:
+                return self._send_json(
+                    {"error": "old_name and new_name are required"}, 400)
+            try:
+                result = studio_flow.rename_character(sid, old_name, new_name)
+            except ValueError as e:
+                return self._send_json({"error": str(e)}, 409)
             except Exception as e:  # noqa: BLE001
                 return self._send_json({"error": f"{type(e).__name__}: {e}"}, 500)
             return self._send_json({"ok": True, **result})

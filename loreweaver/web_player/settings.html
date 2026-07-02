@@ -67,6 +67,23 @@
 </header>
 <main>
   <section class="panel">
+    <h2>Language model</h2>
+    <p class="hint">Choose which model writes the story. Switch the provider between Google Gemini
+      and Anthropic Claude; when Claude is selected, pick a Claude model. API keys are read from
+      the server environment (<code>.env</code>) — only the selection is saved here.</p>
+    <div class="row">
+      <label for="provider" class="muted">Provider</label>
+      <select id="provider" onchange="onProviderChange()"></select>
+      <label for="claude-model" class="muted" id="cm-label">Claude model</label>
+      <select id="claude-model"></select>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button onclick="saveModel()">Save model</button>
+      <span class="status" id="st-model"></span>
+    </div>
+  </section>
+
+  <section class="panel">
     <h2>Writing prompt sections</h2>
     <p class="hint">Each section below is part of the chapter-writing prompt, in order. Edit the
       text and save; only the sections you changed are written. Set a section back to its default
@@ -92,6 +109,7 @@
 const $ = (id) => document.getElementById(id);
 let SECTIONS = [];
 let PLACEHOLDERS = {};
+let MODEL = {};
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c =>
@@ -149,9 +167,43 @@ function renderPreview() {
     `<div class="li"><span class="tok">{${esc(tok)}}</span><span>${esc(desc)}</span></div>`).join('');
 }
 
+const PROVIDER_LABELS = { gemini: 'Google Gemini', claude: 'Anthropic Claude' };
+
+function renderModel() {
+  const providers = MODEL.providers || [];
+  $('provider').innerHTML = providers.map(p =>
+    `<option value="${esc(p)}"${p === MODEL.provider ? ' selected' : ''}>${esc(PROVIDER_LABELS[p] || p)}</option>`).join('');
+  const models = MODEL.claude_models || [];
+  $('claude-model').innerHTML = models.map(m =>
+    `<option value="${esc(m.value)}"${m.value === MODEL.claude_model ? ' selected' : ''}>${esc(m.label)}</option>`).join('');
+  onProviderChange();
+}
+
+// only show the Claude model picker when the Claude provider is selected
+function onProviderChange() {
+  const isClaude = $('provider').value === 'claude';
+  $('claude-model').style.display = isClaude ? '' : 'none';
+  $('cm-label').style.display = isClaude ? '' : 'none';
+}
+
+async function saveModel() {
+  const st = $('st-model');
+  st.className = 'status'; st.textContent = 'Saving…';
+  const body = { model: { provider: $('provider').value, claude_model: $('claude-model').value } };
+  try {
+    const data = await api('POST', '/api/prompts', body);
+    load(data);
+    st.className = 'status ok'; st.textContent = 'Model saved.';
+  } catch (e) {
+    st.className = 'status err'; st.textContent = e.message;
+  }
+}
+
 function load(data) {
   SECTIONS = (data.writing && data.writing.sections) || [];
   PLACEHOLDERS = (data.writing && data.writing.placeholders) || {};
+  MODEL = data.model || {};
+  renderModel();
   renderSections();
   renderPreview();
 }

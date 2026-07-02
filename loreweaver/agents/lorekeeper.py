@@ -14,7 +14,7 @@ import json
 from .. import rag
 from ..state import SeriesState
 from ..store import files
-from ..tools import gemini
+from ..tools import llm
 from ..tools.util import log
 
 
@@ -35,7 +35,7 @@ def run(state: SeriesState) -> dict:
         "characters, return {\"characters\":[]}.\n\n"
         f"KNOWN ROSTER: {sorted(known)}\n\nCHAPTER:\n{draft}"
     )
-    result = gemini.generate_json(prompt)
+    result = llm.generate_json(prompt)
     found = result.get("characters", []) if isinstance(result, dict) else []
 
     added = []

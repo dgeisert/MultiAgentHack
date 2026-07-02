@@ -107,8 +107,8 @@ def _settings_path():
     return settings.DATA_DIR / "prompt_settings.json"
 
 
-def _load_overrides() -> dict:
-    """Read saved section overrides ({key: text}) for the writing prompt."""
+def _load_all() -> dict:
+    """The full persisted settings document ({"writing": {...}, "model": {...}})."""
     path = _settings_path()
     if not path.exists():
         return {}
@@ -116,14 +116,26 @@ def _load_overrides() -> dict:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
-    writing = data.get("writing") if isinstance(data, dict) else None
+    return data if isinstance(data, dict) else {}
+
+
+def _save_all(data: dict) -> None:
+    path = _settings_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def _load_overrides() -> dict:
+    """Read saved section overrides ({key: text}) for the writing prompt."""
+    writing = _load_all().get("writing")
     return writing if isinstance(writing, dict) else {}
 
 
 def _save_overrides(overrides: dict) -> None:
-    path = _settings_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"writing": overrides}, indent=2), encoding="utf-8")
+    # Merge into the full document so sibling sections (e.g. "model") survive.
+    data = _load_all()
+    data["writing"] = overrides
+    _save_all(data)
 
 
 def get_sections() -> list[dict]:
@@ -183,3 +195,58 @@ def assembled_template() -> str:
     """The full prompt structure with placeholders left intact — i.e. exactly how
     the prompt is constructed, for display on the Settings page."""
     return _SECTION_SEPARATOR.join(s["text"] for s in get_sections())
+
+
+# --------------------------------------------------------------------------- #
+# Model selection: which text-LLM provider + Claude model the studio uses.
+# Chosen on the Settings page and persisted alongside the writing prompt (rather
+# than in the environment — only API keys live in .env).
+# --------------------------------------------------------------------------- #
+def get_model_config() -> dict:
+    """The effective LLM selection: {"provider", "claude_model"}. Falls back to
+    the built-in defaults, and ignores any saved value no longer offered."""
+    saved = _load_all().get("model")
+    saved = saved if isinstance(saved, dict) else {}
+
+    provider = saved.get("provider", settings.DEFAULT_LLM_PROVIDER)
+    if provider not in settings.LLM_PROVIDERS:
+        provider = settings.DEFAULT_LLM_PROVIDER
+
+    claude_model = saved.get("claude_model", settings.DEFAULT_CLAUDE_MODEL)
+    if claude_model not in settings.CLAUDE_MODELS:
+        claude_model = settings.DEFAULT_CLAUDE_MODEL
+
+    return {"provider": provider, "claude_model": claude_model}
+
+
+def save_model_config(updates: dict) -> dict:
+    """Persist the LLM selection. `updates` may contain "provider" and/or
+    "claude_model"; unknown/invalid values are rejected in favour of the current
+    (or default) value. Returns the refreshed effective config."""
+    current = get_model_config()
+    updates = updates or {}
+
+    provider = str(updates.get("provider", current["provider"]))
+    if provider not in settings.LLM_PROVIDERS:
+        provider = current["provider"]
+
+    claude_model = str(updates.get("claude_model", current["claude_model"]))
+    if claude_model not in settings.CLAUDE_MODELS:
+        claude_model = current["claude_model"]
+
+    data = _load_all()
+    data["model"] = {"provider": provider, "claude_model": claude_model}
+    _save_all(data)
+    return get_model_config()
+
+
+def model_options() -> dict:
+    """The choices offered on the Settings page: available providers and the
+    labelled Claude model list."""
+    return {
+        "providers": list(settings.LLM_PROVIDERS),
+        "claude_models": [
+            {"value": value, "label": label}
+            for value, label in settings.CLAUDE_MODELS.items()
+        ],
+    }

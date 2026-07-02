@@ -34,8 +34,8 @@ def run(state: SeriesState) -> dict:
     draft = state.get("chapter_draft", "")
     if draft:
         try:
-            from ..tools import gemini
-            synopsis = gemini.generate_text(
+            from ..tools import llm
+            synopsis = llm.generate_text(
                 "Write a 2-3 sentence spoiler-light synopsis of this audiobook chapter "
                 "for podcast show notes. Present tense, no preamble.\n\n"
                 f"CHAPTER {chapter} TEXT:\n{draft[:6000]}"

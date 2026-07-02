@@ -13,7 +13,7 @@ import json
 
 from .. import settings
 from ..state import SeriesState
-from ..tools import gemini
+from ..tools import llm
 from ..tools.util import log
 
 
@@ -37,7 +37,7 @@ def review_draft(state: SeriesState) -> dict:
         'Return JSON {"verdict":"pass"|"revise","notes":[...]}.\n\n'
         f"WORLD BIBLE:\n{json.dumps(state.get('world_bible'))}\n\nCHAPTER:\n{draft[:6000]}"
     )
-    verdict = gemini.generate_json(prompt)
+    verdict = llm.generate_json(prompt)
     v = verdict.get("verdict", "pass") if isinstance(verdict, dict) else "pass"
     notes = verdict.get("notes", []) if isinstance(verdict, dict) else []
 

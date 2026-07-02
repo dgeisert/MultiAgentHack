@@ -4,6 +4,7 @@ langgraph-checkpoint-sqlite>=2.0.0   # resume interrupted runs
 
 # Sponsor tools (live mode)
 google-genai>=1.0.0             # Gemini text + image (new unified SDK)
+anthropic>=0.40.0               # Claude text (swappable LLM provider)
 elevenlabs>=1.0.0               # Voice Design + TTS
 tavily-python>=0.5.0            # web search / crawl
 

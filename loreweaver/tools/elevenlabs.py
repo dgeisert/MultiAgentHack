@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import math
 import struct
+import threading
 import wave
 
 from .. import settings
@@ -72,16 +73,64 @@ def _live_list_voices() -> list[dict]:
 
 
 def list_voices() -> list[dict]:
-    """Return the catalog of available premade voices with metadata."""
+    """Return the catalog of available premade voices with metadata.
+
+    This may block on a network round-trip in live mode, so only call it from
+    background jobs (e.g. casting). For request-path/UI use, prefer
+    `cached_voices()`, which never blocks. A successful fetch here also warms the
+    shared cache."""
     if settings.mock_mode():
         log("elevenlabs", f"(mock) catalog of {len(_MOCK_CATALOG)} premade voices")
         return list(_MOCK_CATALOG)
     log("elevenlabs", "fetching premade voice catalog")
     try:
-        return _live_list_voices()
+        catalog = _live_list_voices()
+        with _catalog_lock:
+            global _catalog_cache
+            _catalog_cache = catalog
+        return catalog
     except Exception as e:  # noqa: BLE001
         log("elevenlabs", f"catalog fetch failed ({e}); using built-in catalog")
         return list(_MOCK_CATALOG)
+
+
+# ---- non-blocking catalog for the request path / UI --------------------------
+# The live catalog fetch can be slow (or hang) against the ElevenLabs API, so the
+# Studio workspace must never wait on it. We serve a cached (or built-in) catalog
+# instantly and refresh the real one once, in the background.
+_catalog_cache: list[dict] | None = None
+_catalog_lock = threading.Lock()
+_catalog_refreshing = False
+
+
+def _refresh_catalog_bg() -> None:
+    global _catalog_cache, _catalog_refreshing
+    try:
+        catalog = _live_list_voices()
+        with _catalog_lock:
+            _catalog_cache = catalog
+        log("elevenlabs", f"catalog cache warmed ({len(catalog)} voices)")
+    except Exception as e:  # noqa: BLE001
+        log("elevenlabs", f"background catalog refresh failed ({e})")
+    finally:
+        with _catalog_lock:
+            _catalog_refreshing = False
+
+
+def cached_voices() -> list[dict]:
+    """Non-blocking voice catalog for UI/request-path use. Returns the cached live
+    catalog if we have one, otherwise the built-in catalog immediately — and, in
+    live mode, kicks off a one-shot background refresh so later calls get the real
+    list. Never blocks the caller on a network round-trip."""
+    global _catalog_refreshing
+    if settings.mock_mode():
+        return list(_MOCK_CATALOG)
+    with _catalog_lock:
+        cached = _catalog_cache
+        if cached is None and not _catalog_refreshing:
+            _catalog_refreshing = True
+            threading.Thread(target=_refresh_catalog_bg, daemon=True).start()
+    return list(cached) if cached is not None else list(_MOCK_CATALOG)
 
 
 @retry(times=3)

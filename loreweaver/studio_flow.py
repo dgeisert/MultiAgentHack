@@ -28,7 +28,7 @@ from pathlib import Path
 
 from . import prompt_config, settings
 from .store import continuity, files, workspace
-from .tools import gemini
+from .tools import llm
 from .tools.util import log
 
 
@@ -224,7 +224,7 @@ def _clean_record(bible: dict, name: str, base: dict, incoming: dict) -> dict:
         for key in files.ABILITY_KEYS:
             if key in incoming["stats"]:
                 try:
-                    rec["stats"][key] = max(1, min(20, int(incoming["stats"][key])))
+                    rec["stats"][key] = max(1, int(incoming["stats"][key]))
                 except (TypeError, ValueError):
                     pass
 
@@ -351,7 +351,7 @@ def generate_plot_points(series_id: str, chapter: int) -> dict:
         f"PREVIOUS CHAPTER (excerpt):\n{(prev_text or '(none)')[:3000]}\n\n"
         f"WORLD BIBLE (lore):\n{json.dumps({k: bible.get(k) for k in ('premise','magic_system','central_conflict') if bible.get(k)})}"
     )
-    raw = gemini.generate_json(prompt)
+    raw = llm.generate_json(prompt)
     points: list[str] = []
     if isinstance(raw, dict):
         for p in raw.get("plot_points", []) or []:
@@ -373,6 +373,15 @@ def set_plot_points(series_id: str, chapter: int, points: list[str]) -> dict:
 
 def set_special_notes(series_id: str, chapter: int, notes: str) -> dict:
     return workspace.update(series_id, chapter, special_notes=(notes or "").strip())
+
+
+def set_included_prev_chapters(series_id: str, chapter: int,
+                               chapters: list[int]) -> dict:
+    """Persist which previous chapters' full text to include in the author prompt.
+    Values are clamped to valid prior chapters (1 <= c < chapter)."""
+    clean = sorted({c for c in (int(x) for x in (chapters or []))
+                    if 1 <= c < chapter})
+    return workspace.update(series_id, chapter, included_prev_chapters=clean)
 
 
 # --------------------------------------------------------------------------- #
@@ -404,9 +413,21 @@ def author_chapter(series_id: str, chapter: int) -> dict:
         _sheet_text(_chapter_character(ws, bible, n))
         for n in selected if _chapter_character(ws, bible, n)) or "(none)"
 
-    prev_text = files.latest_chapter_text(series_id, chapter - 1) if chapter > 1 else ""
-    prev_block = f"--- PREVIOUS CHAPTER ({chapter-1}) ---\n{prev_text}" if prev_text \
-        else "(this is the first chapter)"
+    # Which previous chapters to feed in full. None = default (immediate previous
+    # chapter only); an explicit list (possibly empty) overrides that choice.
+    included = ws.get("included_prev_chapters")
+    if included is None:
+        included = [chapter - 1] if chapter > 1 else []
+    included = sorted({c for c in (int(x) for x in included) if 1 <= c < chapter})
+    if chapter <= 1:
+        prev_block = "(this is the first chapter)"
+    else:
+        parts = []
+        for c in included:
+            text = files.latest_chapter_text(series_id, c)
+            if text:
+                parts.append(f"--- PREVIOUS CHAPTER ({c}) ---\n{text}")
+        prev_block = "\n\n".join(parts) if parts else "(no previous chapters included)"
 
     retrieved = rag.retrieve_block(series_id, beat, s.get("rolling_summary", ""))
     retrieved_block = f"{retrieved}\n\n" if retrieved else ""
@@ -433,9 +454,9 @@ def author_chapter(series_id: str, chapter: int) -> dict:
         "rolling_summary": s.get("rolling_summary", "(none yet)"),
         "prev_block": prev_block,
     })
-    draft = gemini.generate_text(prompt)
+    draft = llm.generate_text(prompt)
 
-    rolling = gemini.generate_text(
+    rolling = llm.generate_text(
         "In 2-3 sentences, update the rolling 'story so far' summary to include this "
         "chapter, preserving names and key facts.\n\n"
         f"PREVIOUS SUMMARY:\n{s.get('rolling_summary','')}\n\nNEW CHAPTER:\n{draft[:4000]}"
@@ -487,7 +508,7 @@ def run_qa(series_id: str, chapter: int) -> dict:
         'Return JSON {"verdict":"pass"|"revise","notes":[...]}.\n\n'
         f"WORLD BIBLE:\n{json.dumps(bible)}\n\nCHAPTER:\n{(draft or '')[:6000]}"
     )
-    verdict = gemini.generate_json(prompt)
+    verdict = llm.generate_json(prompt)
     v = verdict.get("verdict", "pass") if isinstance(verdict, dict) else "pass"
     notes = verdict.get("notes", []) if isinstance(verdict, dict) else []
     if words < max(50, settings.CHAPTER_MIN_WORDS // 3):
@@ -623,7 +644,7 @@ def set_character_sheet(series_id: str, name: str, fields: dict) -> dict:
         for key in files.ABILITY_KEYS:
             if key in fields["stats"]:
                 try:
-                    c["stats"][key] = max(1, min(20, int(fields["stats"][key])))
+                    c["stats"][key] = max(1, int(fields["stats"][key]))
                 except (TypeError, ValueError):
                     pass
 
@@ -726,6 +747,115 @@ def remove_character(series_id: str, name: str) -> dict:
 
     log("studio", f"character removed: {name}")
     return {"removed": name, "roster": [c["name"] for c in new_roster]}
+
+
+def rename_character(series_id: str, old_name: str, new_name: str) -> dict:
+    """Rename a character everywhere it is keyed by name: the world bible roster,
+    the series voice map, the canonical on-disk sheet, and every chapter's
+    workspace (selected list, unified records, narrative states, script line
+    speakers) plus the mirrored characters.json / per-chapter sheet files.
+
+    Validates that the old character exists and the new name is non-empty and not
+    already taken by a *different* character (a pure case change of the same
+    character is allowed). Returns the renamed character dict + affected chapters."""
+    old_name = (old_name or "").strip()
+    new_name = (new_name or "").strip()
+    if not old_name:
+        raise ValueError("current character name is required")
+    if not new_name:
+        raise ValueError("new character name is required")
+
+    s = continuity.load_series(series_id) or {}
+    bible = s.get("world_bible") or {}
+    roster = bible.get("characters") or []
+
+    old_key = old_name.lower()
+    target = next((c for c in roster if c.get("name", "").strip().lower() == old_key), None)
+    if target is None:
+        raise ValueError(f"unknown character '{old_name}'")
+
+    # canonical existing name (as stored) — this is the exact key used in workspaces
+    canonical_old = target.get("name", "").strip()
+
+    # reject a collision with a *different* character
+    new_key = new_name.lower()
+    if new_key != old_key and any(
+            c.get("name", "").strip().lower() == new_key for c in roster):
+        raise ValueError(f"character '{new_name}' already exists")
+
+    if new_name == canonical_old:
+        return {"renamed": canonical_old, "to": new_name, "chapters": []}
+
+    # 1) world bible roster
+    target["name"] = new_name
+
+    # 2) voice map key
+    voice_map = dict(s.get("voice_map") or {})
+    if canonical_old in voice_map:
+        voice_map[new_name] = voice_map.pop(canonical_old)
+
+    _persist_bible(series_id, s, bible, voice_map=voice_map)
+
+    # 3) canonical markdown sheet: rewrite under the new name, drop the old file
+    try:
+        files.save_character_sheet(series_id, target)
+        old_sheet = files.characters_dir(series_id) / f"{files.slug(canonical_old)}.md"
+        if old_sheet.exists() and files.slug(canonical_old) != files.slug(new_name):
+            old_sheet.unlink()
+    except OSError:
+        pass
+
+    # 4) every chapter workspace
+    affected: list[int] = []
+    for ch in workspace.all_chapters(series_id):
+        ws = workspace.load(series_id, ch)
+        touched = False
+
+        selected = ws.get("selected_characters") or []
+        if canonical_old in selected:
+            ws["selected_characters"] = [new_name if n == canonical_old else n
+                                         for n in selected]
+            touched = True
+
+        records = dict(ws.get("character_records") or {})
+        if canonical_old in records:
+            rec = records.pop(canonical_old)
+            if isinstance(rec, dict):
+                rec["name"] = new_name
+            records[new_name] = rec
+            ws["character_records"] = records
+            touched = True
+
+        states = dict(ws.get("character_states") or {})
+        if canonical_old in states:
+            states[new_name] = states.pop(canonical_old)
+            ws["character_states"] = states
+            touched = True
+
+        script = ws.get("script") or []
+        for ln in script:
+            if isinstance(ln, dict) and ln.get("speaker") == canonical_old:
+                ln["speaker"] = new_name
+                touched = True
+
+        if touched:
+            workspace.save(series_id, ch, ws)
+            _persist_chapter_records(series_id, ch, ws.get("character_records") or {})
+            # rename the frozen per-chapter sheet file if one was snapshotted
+            try:
+                cdir = files.chapter_characters_dir(series_id, ch)
+                old_cs = cdir / f"{files.slug(canonical_old)}.md"
+                if old_cs.exists() and files.slug(canonical_old) != files.slug(new_name):
+                    new_cs = cdir / f"{files.slug(new_name)}.md"
+                    old_cs.rename(new_cs)
+            except OSError:
+                pass
+            affected.append(ch)
+
+    log("studio", f"character renamed: {canonical_old} -> {new_name} "
+                  f"(chapters {affected or '—'})")
+    return {"renamed": canonical_old, "to": new_name, "character": target,
+            "chapters": affected}
 
 
 def _persist_bible(series_id: str, s: dict, bible: dict,
@@ -997,7 +1127,7 @@ def _apply_progression(character: dict, prog: dict) -> dict:
         except (TypeError, ValueError):
             d = 0
         if d:
-            character["stats"][key] = _clamp(character["stats"][key] + d, 1, 20)
+            character["stats"][key] = max(1, character["stats"][key] + d)
 
     gained = prog.get("skills_gained")
     gained = gained if isinstance(gained, list) else []
@@ -1089,7 +1219,7 @@ def update_character_sheets(series_id: str, chapter: int) -> dict:
             f"CURRENT SKILLS: {json.dumps(c['skills'])}\n\n"
             f"CHAPTER {chapter} TEXT:\n{draft[:6000]}"
         )
-        prog = gemini.generate_json(prompt)
+        prog = llm.generate_json(prompt)
         if not isinstance(prog, dict):
             prog = {}
         record = _apply_progression(c, prog)

@@ -61,6 +61,9 @@ def _blank(series_id: str, chapter: int) -> dict:
                                      # creation) + stats/skills/level/class + state.
                                      # Mirrored to data/<series>/chNN/characters.json.
         "plot_points": [],           # ordered bullet strings (editable)
+        "included_prev_chapters": None,  # chapter numbers whose full text to feed the
+                                     # author prompt. None = default (immediate previous
+                                     # chapter only). [] = include none.
         "special_notes": "",         # free-form notes injected into the author prompt (editable)
         "draft": "",                 # authored chapter text (editable)
         "qa": None,                  # {"verdict","notes"} from the QA step
@@ -125,6 +128,18 @@ def update(series_id: str, chapter: int, **fields) -> dict:
     return save(series_id, chapter, ws)
 
 
+def all_chapters(series_id: str) -> list[int]:
+    """Every chapter number that has a saved workspace for this series, ascending.
+    Used by cross-chapter operations like renaming a character."""
+    init()
+    with _conn() as con:
+        rows = con.execute(
+            "SELECT chapter FROM chapter_workspace WHERE series_id=? ORDER BY chapter ASC",
+            (series_id,),
+        ).fetchall()
+    return [int(r["chapter"]) for r in rows]
+
+
 def delete(series_id: str, chapter: int) -> None:
     init()
     with _conn() as con:
@@ -132,6 +147,30 @@ def delete(series_id: str, chapter: int) -> None:
             "DELETE FROM chapter_workspace WHERE series_id=? AND chapter=?",
             (series_id, chapter),
         )
+
+
+def shift_down_after(series_id: str, removed_chapter: int) -> None:
+    """After a planned chapter is removed from the outline, move every later
+    chapter's workspace down by one so in-progress Studio state (draft, plot,
+    character records, …) stays attached to its now-renumbered beat.
+
+    Processes chapters in ascending order so each moves into the slot the previous
+    move just vacated. The removed chapter's own workspace is overwritten by the
+    first shift (or left for the caller to delete when nothing follows it).
+    """
+    init()
+    with _conn() as con:
+        rows = con.execute(
+            "SELECT chapter FROM chapter_workspace "
+            "WHERE series_id=? AND chapter>? ORDER BY chapter ASC",
+            (series_id, removed_chapter),
+        ).fetchall()
+    for r in rows:
+        c = int(r["chapter"])
+        ws = load(series_id, c)
+        delete(series_id, c)
+        ws["chapter"] = c - 1
+        save(series_id, c - 1, ws)
 
 
 def find_previous_state(series_id: str, chapter: int, character: str) -> tuple[int, str] | None:

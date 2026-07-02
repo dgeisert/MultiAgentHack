@@ -15,15 +15,12 @@ from .util import log, retry
 
 # ---------------------------------------------------------------- text -------
 def _client():
-    """A Gemini client with a generous request timeout (transient server
-    disconnects are common on large generations)."""
+    """A Gemini client with no request timeout: a full chapter generation can
+    run arbitrarily long and must never be cut off. Streaming keeps the
+    connection alive during the model's long thinking phase."""
     from google import genai
-    from google.genai import types
 
-    return genai.Client(
-        api_key=settings.GEMINI_API_KEY,
-        http_options=types.HttpOptions(timeout=180_000),  # ms
-    )
+    return genai.Client(api_key=settings.GEMINI_API_KEY)
 
 
 # Retry transient connection drops (RemoteProtocolError etc.) with backoff.

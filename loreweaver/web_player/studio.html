@@ -70,6 +70,8 @@
   .ins-btn { background:transparent; color:var(--gold); border:1px solid rgba(232,193,106,.5);
              border-radius:8px; padding:6px 9px; font-size:11px; font-weight:600; }
   .ins-btn:disabled { opacity:.3; }
+  .ins-btn.rm { color:var(--danger); border-color:rgba(255,122,122,.5); }
+  .ins-btn.rm:hover:not(:disabled) { border-color:var(--danger); }
   .insbox { border-top:1px solid var(--line); padding:14px; background:#0b1920; }
   .insbox .ttl { font-size:12px; color:var(--gold); margin:0 0 8px; }
   .insbox input, .insbox textarea { width:100%; margin-bottom:8px; }
@@ -124,6 +126,23 @@
               border-radius:9px; padding:8px 11px; margin:7px 0; background:#0a1014; }
   .voicerow .vn { font-size:13px; flex:1; }
   .voicerow select { min-width:200px; }
+
+  /* checkbox dropdown for choosing which previous chapters to include */
+  .prevdrop { position:relative; display:inline-block; }
+  .prevbtn { display:inline-flex; align-items:center; gap:6px; }
+  .prevmenu { display:none; position:absolute; z-index:20; top:calc(100% + 4px); left:0;
+              min-width:190px; max-height:240px; overflow:auto; background:var(--panel);
+              border:1px solid var(--line); border-radius:9px; padding:6px;
+              box-shadow:0 8px 22px rgba(0,0,0,.45); }
+  .prevmenu.open { display:block; }
+  .prevactions { display:flex; gap:12px; padding:4px 6px 6px; border-bottom:1px solid var(--line);
+                 margin-bottom:4px; }
+  .prevactions .link { background:none; border:none; color:var(--teal); cursor:pointer;
+                       font-size:12px; padding:0; }
+  .prevopt { display:flex; align-items:center; gap:8px; font-size:13px; padding:5px 6px;
+             border-radius:6px; cursor:pointer; white-space:nowrap; }
+  .prevopt:hover { background:#0a1014; }
+  .prevopt input { width:auto; margin:0; }
 
   .linerow { display:grid; grid-template-columns:150px 1fr; gap:10px; align-items:start;
              border:1px solid var(--line); border-radius:9px; padding:9px 11px; margin:7px 0;
@@ -437,7 +456,13 @@ async function refreshSeries() {
       + `<button class="ins-btn" ${afterOk ? '' : 'disabled'} title="${afterOk
           ? 'Insert a new chapter after this one'
           : 'Already generated — can\'t insert after it'}" `
-      + `onclick="insertForm(${i},'after',this)">+ after</button></span>`;
+      + `onclick="insertForm(${i},'after',this)">+ after</button>`
+      + `<button class="ins-btn" title="Edit this chapter's title and short description" `
+      + `onclick="editForm(${i},this)">✎ edit</button>`
+      + `<button class="ins-btn rm" ${beforeOk ? '' : 'disabled'} title="${beforeOk
+          ? 'Remove this planned chapter'
+          : 'Already generated — can\'t remove it'}" `
+      + `onclick="removeChapter(${i})">✕ remove</button></span>`;
     return `<div class="fwitem" data-ch="${i}">
       <div class="fwhead">
         <div class="n">CH ${i}</div>
@@ -448,6 +473,7 @@ async function refreshSeries() {
         ${ins}
       </div>
       <div class="insbox" id="ins-${i}" style="display:none"></div>
+      <div class="insbox" id="ed-${i}" style="display:none"></div>
       <div class="wiz" id="wiz-${i}" style="display:none"></div>
     </div>`;
   }).join('') || '<div class="muted">No framework yet — build one above.</div>';
@@ -489,6 +515,8 @@ function sectionSnapshot(ch) {
   if (document.querySelector(`#wiz-${ch} .charcard`))
     snap.chars = JSON.stringify({ selected: checkedChars(ch), records: collectRecords(ch) });
   const plotEl = $(`plot-${ch}`);   if (plotEl)  snap.plot  = plotEl.value;
+  if (document.querySelector(`#wiz-${ch} .prevchap`))
+    snap.prevchaps = JSON.stringify(checkedPrevChapters(ch));
   const notesEl = $(`notes-${ch}`); if (notesEl) snap.notes = notesEl.value;
   const draftEl = $(`draft-${ch}`); if (draftEl) snap.draft = draftEl.value;
   return snap;
@@ -546,7 +574,7 @@ function renderWizard(ch, p) {
         : (frozen ? `<span class="src">captured from base sheet</span>` : '');
     const statInputs = abil.map(k =>
       `<label class="statf"><span>${k.slice(0,3).toUpperCase()}</span>
-         <input type="number" min="1" max="20" data-stat="${k}" value="${stat(k)}"/></label>`).join('');
+         <input type="number" min="1" data-stat="${k}" value="${stat(k)}"/></label>`).join('');
     const ta = (key, label, val) =>
       `<label class="shf"><span>${esc(label)}</span><textarea data-field="${key}">${esc(val ?? '')}</textarea></label>`;
     const u = updates[c.name];
@@ -563,15 +591,19 @@ function renderWizard(ch, p) {
           <span><span class="cn">${esc(c.name)}</span>
             ${c.role ? `<span class="cr"> — ${esc(c.role)}</span>` : ''}${src}</span>
         </label>
-        <button class="ghost small cc-rm" title="Remove ${esc(c.name)} from this series"
-                onclick="removeCharacter(${ch},'${esc(c.name)}')">✕ Remove</button>
+        <span style="flex:0 0 auto;display:flex;gap:6px">
+          <button class="ghost small" title="Rename ${esc(c.name)} everywhere in this series"
+                  onclick="renameCharacter(${ch},'${esc(c.name)}')">✎ Rename</button>
+          <button class="ghost small cc-rm" title="Remove ${esc(c.name)} from this series"
+                  onclick="removeCharacter(${ch},'${esc(c.name)}')">✕ Remove</button>
+        </span>
       </div>
       <div class="cc-body">
         <label class="shf"><span>State at start of chapter ${ch}</span>
           <textarea class="state-ta" data-field="state" data-name="${esc(c.name)}"
             placeholder="Current state at the start of this chapter…">${esc(r.state || '')}</textarea></label>
         <div class="sh-grid">
-          <label class="shf"><span>Role</span><input data-field="role" value="${esc(r.role ?? c.role ?? '')}"/></label>
+          <label class="shf"><span>Role / short description</span><input data-field="role" placeholder="One-line summary of who this character is" value="${esc(r.role ?? c.role ?? '')}"/></label>
           <label class="shf sm"><span>Level</span><input type="number" min="1" data-field="level" value="${r.level ?? c.level ?? 1}"/></label>
           <label class="shf"><span>Class</span><input data-field="char_class" value="${esc(r.char_class ?? c.char_class ?? '')}"/></label>
         </div>
@@ -628,9 +660,33 @@ function renderWizard(ch, p) {
 
   // 3 · author
   const wc = w.draft ? w.draft.split(/\s+/).filter(Boolean).length : 0;
+  // Which previous chapters to feed the author. null = default (immediate prev only).
+  const prevSel = (w.included_prev_chapters == null)
+    ? (ch > 1 ? [ch - 1] : [])
+    : w.included_prev_chapters.map(Number);
+  const prevSet = new Set(prevSel);
+  let prevItems = '';
+  for (let c = 1; c < ch; c++)
+    prevItems += `<label class="prevopt"><input type="checkbox" class="prevchap" value="${c}"
+      ${prevSet.has(c) ? 'checked' : ''} onchange="updatePrevLabel(${ch})"> Chapter ${c}</label>`;
+  const prevControl = ch > 1
+    ? `<div class="prevdrop">
+         <button type="button" class="ghost small prevbtn" onclick="togglePrevDrop(${ch},event)">
+           <span id="prevlabel-${ch}">${esc(prevSummary(prevSel, ch))}</span> ▾</button>
+         <div class="prevmenu" id="prevmenu-${ch}">
+           <div class="prevactions">
+             <button type="button" class="link" onclick="setAllPrev(${ch},true)">Select all</button>
+             <button type="button" class="link" onclick="setAllPrev(${ch},false)">Clear</button>
+           </div>
+           ${prevItems}
+         </div>
+       </div>`
+    : '<span class="muted" style="font-size:13px">No previous chapters.</span>';
   const s4 = step(ch, 'author', 3, 'Write the chapter', !!w.draft,
     `<div class="desc">The prose uses the current states + plot points (highest priority), the full
-       lore, and the previous chapter. Edit the result, then save.</div>
+       lore, and the selected previous chapters. Edit the result, then save.</div>
+     <div class="row" style="margin-top:2px;margin-bottom:8px;align-items:center;gap:8px">
+       <span class="muted" style="font-size:13px">Include previous chapters:</span>${prevControl}</div>
      <textarea id="draft-${ch}" style="min-height:240px" placeholder="The chapter text appears here once written…">${esc(w.draft || '')}</textarea>
      <div class="row" style="margin-top:8px">
        <button class="small" onclick="postJob(${ch},'author','st-author-${ch}','Writing chapter…')">Write chapter</button>
@@ -786,6 +842,11 @@ async function saveAllSections(ch, reload = true) {
     await api('POST', `/api/gen/series/${sid}/chapter/${ch}/plot`, { plot_points });
     saved++;
   }
+  if (snap.prevchaps !== undefined && snap.prevchaps !== base.prevchaps) {
+    await api('POST', `/api/gen/series/${sid}/chapter/${ch}/prev-chapters`,
+              { included_prev_chapters: JSON.parse(snap.prevchaps) });
+    saved++;
+  }
   if (snap.notes !== undefined && snap.notes !== base.notes) {
     await api('POST', `/api/gen/series/${sid}/chapter/${ch}/notes`, { special_notes: snap.notes });
     saved++;
@@ -860,6 +921,22 @@ async function removeCharacter(ch, name) {
   } catch (e) { alert(e.message); }
 }
 
+// rename a character everywhere in the series (bible, voice map, records,
+// states, script speakers, on-disk sheets), then reload the wizard + list
+async function renameCharacter(ch, oldName) {
+  const next = prompt(`Rename “${oldName}” to:`, oldName);
+  if (next === null) return;                 // cancelled
+  const newName = next.trim();
+  if (!newName || newName === oldName) return;
+  try {
+    await saveAllSections(ch, false);        // preserve in-progress edits on other cards
+    await api('POST', `/api/gen/series/${enc(SID)}/character/rename`,
+              { old_name: oldName, new_name: newName });
+    await loadWizard(ch);
+    await refreshSeries();
+  } catch (e) { alert(e.message); }
+}
+
 // collect the unified record (state + sheet fields + stats) from every card
 function collectRecords(ch) {
   const records = {};
@@ -882,6 +959,43 @@ function saveCharacters(ch) { return saveSection(ch, `st-chars-${ch}`); }
 function savePlot(ch)       { return saveSection(ch, `st-plot-${ch}`); }
 function saveNotes(ch)      { return saveSection(ch, `st-notes-${ch}`); }
 function saveDraft(ch)      { return saveSection(ch, `st-author-${ch}`); }
+
+// ---- "include previous chapters" checkbox dropdown ----
+function checkedPrevChapters(ch) {
+  return [...document.querySelectorAll(`#wiz-${ch} .prevchap:checked`)]
+    .map(c => parseInt(c.value, 10)).sort((a, b) => a - b);
+}
+function prevSummary(sel, ch) {
+  const total = ch - 1;
+  const n = sel.length;
+  if (n === 0) return 'None';
+  if (n === total) return `All ${total}`;
+  if (n === 1) return `Chapter ${sel[0]}`;
+  return `${n} selected`;
+}
+function updatePrevLabel(ch) {
+  const lbl = $(`prevlabel-${ch}`);
+  if (lbl) lbl.textContent = prevSummary(checkedPrevChapters(ch), ch);
+}
+function togglePrevDrop(ch, ev) {
+  if (ev) ev.stopPropagation();
+  const menu = $(`prevmenu-${ch}`);
+  if (!menu) return;
+  const open = menu.classList.toggle('open');
+  if (open) {
+    const close = (e) => {
+      if (!menu.contains(e.target) && !e.target.closest(`#prevmenu-${ch},.prevbtn`)) {
+        menu.classList.remove('open');
+        document.removeEventListener('click', close);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', close), 0);
+  }
+}
+function setAllPrev(ch, val) {
+  document.querySelectorAll(`#wiz-${ch} .prevchap`).forEach(c => { c.checked = val; });
+  updatePrevLabel(ch);
+}
 function changeVoice(ch, character, voice_id) {
   syncSave(ch, 'voice', { character, voice_id }, `st-cast-${ch}`, `${character} voice updated.`);
 }
@@ -921,6 +1035,50 @@ async function doInsert(ch, position, btn) {
     if (st) { st.className = 'status err'; st.textContent = e.message; }
     btn.disabled = false;
   }
+}
+
+// ---------------- edit / remove chapter ----------------
+function editForm(ch, btn) {
+  const box = $('ed-' + ch);
+  if (!box) return;
+  if (box.style.display === 'block') { box.style.display = 'none'; return; }
+  const ins = $('ins-' + ch); if (ins) ins.style.display = 'none';  // don't stack the two boxes
+  const outline = (DETAIL && DETAIL.chapter_outline) || [];
+  const beat = outline.find(o => o.index === ch) || {};
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div class="ttl">Edit chapter ${ch} — title &amp; short description.</div>
+    <input id="ed-title-${ch}" placeholder="Chapter title" value="${esc(beat.title || '')}" />
+    <textarea id="ed-syn-${ch}" placeholder="Short description / synopsis">${esc(beat.synopsis || beat.beat || '')}</textarea>
+    <div class="row">
+      <button class="small" onclick="doEditOutline(${ch},this)">Save changes</button>
+      <button class="ghost small" onclick="$('ed-${ch}').style.display='none'">Cancel</button>
+      <span class="status" id="ed-st-${ch}"></span>
+    </div>`;
+  const t = $('ed-title-' + ch); if (t) { t.focus(); t.select(); }
+}
+
+async function doEditOutline(ch, btn) {
+  const title = ($('ed-title-' + ch)?.value || '').trim();
+  const synopsis = ($('ed-syn-' + ch)?.value || '').trim();
+  const st = $('ed-st-' + ch); if (st) { st.className = 'status'; st.textContent = 'Saving…'; }
+  btn.disabled = true;
+  try {
+    await api('POST', `/api/gen/series/${enc(SID)}/chapter/${ch}/outline`, { title, synopsis });
+    await refreshSeries();
+  } catch (e) {
+    if (st) { st.className = 'status err'; st.textContent = e.message; }
+    btn.disabled = false;
+  }
+}
+
+async function removeChapter(ch) {
+  if (!confirm(`Remove chapter ${ch} from the plan? Any draft for it is discarded and the following chapters shift up by one.`)) return;
+  try {
+    await api('POST', `/api/gen/series/${enc(SID)}/chapter/${ch}/remove`);
+    delete openWiz[ch];
+    await refreshSeries();
+  } catch (e) { alert(e.message); }
 }
 
 // ---------------- jobs polling ----------------

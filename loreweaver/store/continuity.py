@@ -206,6 +206,67 @@ def insert_outline_beat(series_id: str, new_index: int, beat: dict) -> list[dict
     return outline
 
 
+def update_outline_beat(series_id: str, index: int, fields: dict) -> list[dict]:
+    """Update an existing chapter-outline beat's editable text (title, synopsis).
+
+    Creates the beat if the outline has no entry at `index` yet (e.g. a chapter
+    that was published before a framework existed). Returns the rewritten outline
+    (sorted by index).
+    """
+    allowed = ("title", "synopsis")
+    with _conn() as con:
+        row = con.execute(
+            "SELECT chapter_outline FROM series WHERE series_id=?", (series_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"unknown series: {series_id}")
+        outline = json.loads(row["chapter_outline"] or "[]")
+
+        beat = next((b for b in outline if int(b.get("index", 0)) == index), None)
+        if beat is None:
+            beat = {"index": index}
+            outline.append(beat)
+        for k in allowed:
+            if isinstance(fields.get(k), str):
+                beat[k] = fields[k].strip()
+        outline.sort(key=lambda b: int(b.get("index", 0)))
+
+        con.execute(
+            "UPDATE series SET chapter_outline=? WHERE series_id=?",
+            (json.dumps(outline), series_id),
+        )
+    return outline
+
+
+def remove_outline_beat(series_id: str, index: int) -> list[dict]:
+    """Drop the chapter-outline beat at `index` and shift every later beat down by
+    one so the plan stays contiguous — the inverse of insert_outline_beat.
+
+    Returns the rewritten outline (sorted by index). Only touches the outline (the
+    plan) — callers must ensure `index` lies past any already-generated chapter so
+    produced episodes are never renumbered.
+    """
+    with _conn() as con:
+        row = con.execute(
+            "SELECT chapter_outline FROM series WHERE series_id=?", (series_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"unknown series: {series_id}")
+        outline = json.loads(row["chapter_outline"] or "[]")
+
+        outline = [b for b in outline if int(b.get("index", 0)) != index]
+        for b in outline:
+            if int(b.get("index", 0)) > index:
+                b["index"] = int(b["index"]) - 1
+        outline.sort(key=lambda b: int(b.get("index", 0)))
+
+        con.execute(
+            "UPDATE series SET chapter_outline=? WHERE series_id=?",
+            (json.dumps(outline), series_id),
+        )
+    return outline
+
+
 def add_episode(series_id: str, episode: dict) -> None:
     with _conn() as con:
         con.execute(

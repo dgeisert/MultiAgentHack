@@ -12,7 +12,7 @@ import json
 from .. import rag
 from ..state import SeriesState
 from ..store import files
-from ..tools import gemini
+from ..tools import llm
 from ..tools.util import log
 
 
@@ -37,14 +37,14 @@ def run(state: SeriesState) -> dict:
         "distinct.\n\n"
         f"CONCEPT:\n{json.dumps(concept)}"
     )
-    bible = gemini.generate_json(bible_prompt)
+    bible = llm.generate_json(bible_prompt)
 
     outline_prompt = (
         "Given this world bible, outline the first 6 chapters of a season. Return JSON: "
         '{"chapters":[{"index":1,"title":"...","beat":"what happens"}, ...]}.\n\n'
         f"WORLD BIBLE:\n{json.dumps(bible)}"
     )
-    outline_raw = gemini.generate_json(outline_prompt)
+    outline_raw = llm.generate_json(outline_prompt)
     outline = outline_raw.get("chapters", []) if isinstance(outline_raw, dict) else []
     if not outline:  # robust default so the graph never stalls
         outline = [{"index": i, "title": f"Chapter {i}", "beat": "advance the central conflict"}

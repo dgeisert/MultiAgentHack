@@ -17,7 +17,7 @@ import json
 
 from ..state import SeriesState
 from ..store import continuity, files
-from ..tools import gemini
+from ..tools import llm
 from ..tools.util import log
 
 # Lore fields the model may fill / extend on the world bible.
@@ -55,7 +55,7 @@ def _extract(text: str, bible: dict) -> dict:
         f"CURRENT WORLD BIBLE:\n{json.dumps(bible) if bible else '(none yet — this is a new world)'}\n\n"
         f"BRAIN-DUMP:\n{text}"
     )
-    result = gemini.generate_json(prompt)
+    result = llm.generate_json(prompt)
     return result if isinstance(result, dict) else {}
 
 
@@ -172,7 +172,7 @@ def build_framework(series_id: str, *, count: int = 6) -> dict:
         f"Produce exactly {count} chapters, indexed 1..{count}.\n\n"
         f"WORLD BIBLE:\n{json.dumps(bible)}"
     )
-    raw = gemini.generate_json(prompt)
+    raw = llm.generate_json(prompt)
     chapters = raw.get("chapters", []) if isinstance(raw, dict) else []
 
     outline: list[dict] = []

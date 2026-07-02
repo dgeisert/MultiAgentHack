@@ -126,7 +126,7 @@ def ensure_character_stats(character: dict) -> dict:
     raw = raw if isinstance(raw, dict) else {}
     stats = {}
     for key in ABILITY_KEYS:
-        stats[key] = max(1, min(20, _coerce_int(raw.get(key), 10)))
+        stats[key] = max(1, _coerce_int(raw.get(key), 10))
     character["stats"] = stats
 
     skills = character.get("skills")
